@@ -1,0 +1,10 @@
+.env
+.envi
+.cache
+.coverage
+.tox
+*.egg-info
+*.pyc
+*.outputs.yaml
+
+__pycache__
