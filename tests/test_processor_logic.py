@@ -2,6 +2,7 @@
 """Basic unit tests."""
 
 import inspect
+import json
 from mock import Mock
 import os
 import sys
@@ -93,3 +94,11 @@ def test_send_to_delivery_stream(search_events, boto3_client, monkeypatch):
     monkeypatch.setattr("boto3.client", boto3_client)
     utils.send_to_delivery_stream(search_events, "dummy_stream")
     boto3_client("firehose").put_record_batch.call_count == 1
+
+
+def test_unpack_kinesis_event(kinesis_event):
+    """Extracts json-serialized events from a Kinesis events."""
+    events = utils.unpack_kinesis_event(kinesis_event,
+                                        post_processor=json.loads)
+    # There should be one event per kinesis record
+    assert len(events) == len(kinesis_event["Records"])

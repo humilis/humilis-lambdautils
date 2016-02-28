@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Utilities for Lambda functions deployed using humilis."""
 
+import base64
 import json
 import logging
 import uuid
@@ -135,3 +136,17 @@ def context_dict(context):
         "log_group_name": context.log_group_name,
         "cognito_identity_id": context.identity.cognito_identity_id,
         "cognito_identity_pool_id": context.identity.cognito_identity_pool_id}
+
+
+def unpack_kinesis_event(kinesis_event, post_processor=None):
+    """Extracts events (a list of dicts) from a Kinesis event."""
+    records = kinesis_event['Records']
+    events = []
+    for rec in records:
+        payload = base64.decodestring(rec['kinesis']['data']).decode()
+        if post_processor is not None:
+            payload = post_processor(payload)
+
+        events.append(payload)
+
+    return events

@@ -2,7 +2,9 @@
 """Fixtures."""
 
 
+import base64
 from datetime import datetime
+import json
 from mock import Mock
 import uuid
 
@@ -11,11 +13,32 @@ import pytest
 
 @pytest.fixture(scope="function", params=[1, 10, 50])
 def search_events(request):
+    """A list of one or more search events."""
     return [{
         "id": str(uuid.uuid4()),
         "search_id": str(uuid.uuid4()),
         "timestamp": datetime.utcnow().isoformat(),
         "client_id": str(uuid.uuid4())} for _ in range(request.param)]
+
+
+@pytest.fixture(scope="function")
+def kinesis_payloads(search_events):
+    """A Kinesis payload containing one or more search events."""
+    return [base64.encodestring(json.dumps(ev)) for ev in search_events]
+
+
+@pytest.fixture(scope="function")
+def kinesis_event(kinesis_payloads):
+    """A Kinesis event that wraps a search event."""
+    return {
+        "Records": [
+            {
+                "kinesis": {
+                    "data": payload,
+                    },
+                } for payload in kinesis_payloads
+            ]
+        }
 
 
 @pytest.fixture(scope="session")
