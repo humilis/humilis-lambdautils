@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """Utilities for Lambda functions deployed using humilis."""
 
+import json
+import logging
+import uuid
 
 import boto3
-import json
-import uuid
+import raven
 
 # Tell humilis to pre-process the file with Jinja2
 # preprocessor:jinja2
@@ -15,6 +17,10 @@ if len("{{_env.stage}}") > 0:
 else:
     SECRETS_TABLE_NAME = "{{_env.name}}-secrets"
     STATE_TABLE_NAME = "{{_env.name}}-{{_layer.name}}-state"
+
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def get_secret(key):
@@ -45,7 +51,7 @@ def set_state(key, value):
     """Sets a state value."""
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(STATE_TABLE_NAME)
-    return table.put_item(Item={"id": key, 'value': value})
+    return table.put_item(Item={"id": key, "value": value})
 
 
 def send_to_delivery_stream(events, stream_name):
@@ -65,16 +71,67 @@ def send_to_delivery_stream(events, stream_name):
     return resp
 
 
-def send_to_kinesis_stream(events, stream_name):
+def send_to_kinesis_stream(events, stream_name, partition_key=None):
     """Sends events to a Kinesis stream."""
     records = []
     for event in events:
         if not isinstance(event, str):
             event = json.dumps(event)
+        if partition_key is not None:
+            partition_key_value = event.get(partition_key)
+        else:
+            partition_key_value = str(uuid.uuid4())
+
         record = {"Data": event,
-                  "PartitionKey": str(uuid.uuid4())}
+                  "PartitionKey": partition_key_value}
         records.append(record)
 
     kinesis = boto3.client("kinesis")
     resp = kinesis.put_records(StreamName=stream_name, Records=records)
     return resp
+
+
+def sentry_monitor(dsn=None):
+    """A decorator that adds Sentry monitoring to a Lambda handler."""
+    if dsn is None:
+        dsn = get_secret("sentry.dsn")
+
+    if dsn is None:
+        logger.warning("Unable to retrieve sentry DSN")
+    elif not hasattr(sentry_monitor, "clients"):
+        client = raven.Client(dsn)
+        clients = {dsn: client}
+        setattr(sentry_monitor, "clients", clients)
+    else:
+        clients = getattr(sentry_monitor, "clients")
+        if dsn not in clients:
+            clients[dsn] = raven.Client(dsn)
+        client = clients[dsn]
+
+    def decorator(func):
+        def wrapper(event, context):
+            if dsn is not None:
+                client.user_context(context_dict(context))
+                try:
+                    return func(event, context)
+                except:
+                    client.captureException()
+                    raise
+            else:
+                return func(event, context)
+        return wrapper
+
+    return decorator
+
+
+def context_dict(context):
+    """Converst the Lambda context object to a dict."""
+    return {
+        "function_name": context.function_name,
+        "function_version": context.function_version,
+        "invoked_function_arn": context.invoked_function_arn,
+        "memory_limit_in_mb": context.memory_limit_in_mb,
+        "aws_request_id": context.aws_request_id,
+        "log_group_name": context.log_group_name,
+        "cognito_identity_id": context.identity.cognito_identity_id,
+        "cognito_identity_pool_id": context.identity.cognito_identity_pool_id}

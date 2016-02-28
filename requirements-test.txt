@@ -2,6 +2,8 @@
 # http://docs.aws.amazon.com/lambda/latest/dg/current-supported-versions.html
 boto3==1.2.1
 
+raven
+
 pytest
 pytest-cov
 mock

@@ -27,7 +27,7 @@ setup(
     # We do not include boto3 as an install requirement because the version of
     # boto3 shipped with the Lambda environment is fine. We specify the boto3
     # is required in the test and dev requirements files.
-    install_requires=[],
+    install_requires=["raven"],
     classifiers=[
         "Programming Language :: Python :: 2.7"],
     zip_safe=False

@@ -2,39 +2,25 @@
 """Fixtures."""
 
 
+from datetime import datetime
 from mock import Mock
 import uuid
 
 import pytest
 
 
-@pytest.fixture(scope="session")
-def kinesis_event():
-    """A sample Kinesis event."""
-    return {
-        "Records": [
-            {
-                "eventID": "shardId-000000000000:44200961",
-                "eventVersion": "1.0",
-                "kinesis": {
-                    "partitionKey": "partitionKey-3",
-                    "data": b"eyJtZXNzYWdlIjogIkhlbGxvIFdvcmxkISJ9\n",
-                    "kinesisSchemaVersion": "1.0",
-                    "sequenceNumber": "4954511524144582180062593244200961"
-                    },
-                "invokeIdentityArn": "arn:aws:iam::EXAMPLE",
-                "eventName": "aws:kinesis:record",
-                "eventSourceARN": "arn:aws:kinesis:EXAMPLE",
-                "eventSource": "aws:kinesis",
-                "awsRegion": "us-east-1"
-                }
-            ]
-        }
+@pytest.fixture(scope="function", params=[1, 10, 50])
+def search_events(request):
+    return [{
+        "id": str(uuid.uuid4()),
+        "search_id": str(uuid.uuid4()),
+        "timestamp": datetime.utcnow().isoformat(),
+        "client_id": str(uuid.uuid4())} for _ in range(request.param)]
 
 
 @pytest.fixture(scope="session")
 def context():
-    """A dummy CF context object."""
+    """A dummy CF/Lambda context object."""
 
     class DummyContext:
         def __init__(self):
@@ -115,3 +101,9 @@ def boto3_resource(dynamodb_resource):
 
     mocked = Mock(side_effect=produce_resource)
     return mocked
+
+
+@pytest.fixture(scope="function")
+def raven_client():
+    """A mock for raven.client."""
+    return Mock()
