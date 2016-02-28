@@ -1,6 +1,8 @@
 lambdautils
 ============
 
+[![Build Status](https://travis-ci.com/InnovativeTravel/humilis-lambdautils.svg?token=hmq4YbNZBSHyLZzpqBCq&branch=master)](https://travis-ci.com/InnovativeTravel/humilis-lambdautils)
+
 Shared utilities across Lambda event processors.
 
 
