@@ -18,3 +18,7 @@ test: develop
 # remove virtualenv and layers dir
 clean:
 	rm -rf .env .tox
+
+# upload to Pypi
+pypi: develop
+	$(PYTHON) setup.py sdist upload
