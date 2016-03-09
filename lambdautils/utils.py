@@ -4,9 +4,11 @@
 import base64
 import json
 import logging
+import traceback
 import uuid
 
 import boto3
+from botocore.exceptions import ClientError
 import raven
 
 # Tell humilis to pre-process the file with Jinja2
@@ -28,16 +30,28 @@ def get_secret(key):
     """Retrieves a secret from the secrets vault."""
     # Get the encrypted secret from DynamoDB
     client = boto3.client('dynamodb')
-    encrypted = client.get_item(
-        TableName=SECRETS_TABLE_NAME,
-        Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
+    try:
+        encrypted = client.get_item(
+            TableName=SECRETS_TABLE_NAME,
+            Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
+    except ClientError:
+        print("DynamoDB error when retrieving secret '{}'".format(key))
+        traceback.print_exc()
+        return
 
     if encrypted is None:
         return
 
     # Decrypt using KMS
     client = boto3.client('kms')
-    return client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
+    try:
+        resp = client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
+    except ClientError:
+        print("KMS error when trying to decrypt secret")
+        traceback.print_exc()
+        return
+
+    return resp
 
 
 def get_state(key):
