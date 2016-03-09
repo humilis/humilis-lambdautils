@@ -45,13 +45,11 @@ def get_secret(key):
     # Decrypt using KMS
     client = boto3.client('kms')
     try:
-        resp = client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
+        return client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
     except ClientError:
         print("KMS error when trying to decrypt secret")
         traceback.print_exc()
         return
-
-    return resp
 
 
 def get_state(key):
@@ -59,7 +57,13 @@ def get_state(key):
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(STATE_TABLE_NAME)
     print("Getting key '{}' from table '{}'".format(key, STATE_TABLE_NAME))
-    return table.get_item(Key={"id": key}).get("Item", {}).get("value")
+    try:
+        return table.get_item(Key={"id": key}).get("Item", {}).get("value")
+    except ClientError:
+        print("DynamoDB error when retrieving key '{}' from table '{}'".format(
+            key, STATE_TABLE_NAME))
+        traceback.print_exc()
+        return
 
 
 def set_state(key, value):
