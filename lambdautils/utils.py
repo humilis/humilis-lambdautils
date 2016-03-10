@@ -52,25 +52,29 @@ def get_secret(key):
         return
 
 
-def get_state(key):
+def get_state(key, table_name=STATE_TABLE_NAME):
     """Gets a state value from the state table."""
     dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table(STATE_TABLE_NAME)
-    print("Getting key '{}' from table '{}'".format(key, STATE_TABLE_NAME))
+    table = dynamodb.Table(table_name)
+    print("Getting key '{}' from table '{}'".format(key, table_name))
     try:
         return table.get_item(Key={"id": key}).get("Item", {}).get("value")
     except ClientError:
         print("DynamoDB error when retrieving key '{}' from table '{}'".format(
-            key, STATE_TABLE_NAME))
+            key, table_name))
         traceback.print_exc()
         return
 
 
-def set_state(key, value):
+def set_state(key, value, table_name=STATE_TABLE_NAME):
     """Sets a state value."""
     dynamodb = boto3.resource("dynamodb")
-    table = dynamodb.Table(STATE_TABLE_NAME)
-    return table.put_item(Item={"id": key, "value": value})
+    table = dynamodb.Table(table_name)
+    print("Putting {} -> {} in DynamoDB table {}".format(key, value,
+                                                         table_name))
+    resp = table.put_item(Item={"id": key, "value": value})
+    print("Response from DynamoDB: '{}'".format(resp))
+    return resp
 
 
 def send_to_delivery_stream(events, stream_name):
