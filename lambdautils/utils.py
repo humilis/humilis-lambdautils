@@ -2,8 +2,10 @@
 """Utilities for Lambda functions deployed using humilis."""
 
 import base64
+import inspect
 import json
 import logging
+import os
 import traceback
 import uuid
 
@@ -11,28 +13,77 @@ import boto3
 from botocore.exceptions import ClientError
 import raven
 
-# Tell humilis to pre-process the file with Jinja2
-# preprocessor:jinja2
-
-if len("{{_env.stage}}") > 0:
-    SECRETS_TABLE_NAME = "{{_env.name}}-{{_env.stage}}-secrets"
-    STATE_TABLE_NAME = "{{_env.name}}-{{_layer.name}}-{{_env.stage}}-state"
-else:
-    SECRETS_TABLE_NAME = "{{_env.name}}-secrets"
-    STATE_TABLE_NAME = "{{_env.name}}-{{_layer.name}}-state"
-
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def get_secret(key):
+class StateTableError(Exception):
+    pass
+
+
+def _secrets_table_name(environment=None, stage=None):
+    """The name of the secrets table associated to a humilis deployment."""
+    if environment is None:
+        # For backwards compatiblity
+        environment = os.environ.get("HUMILIS_ENVIRONMENT") or \
+            _calling_scope_variable("HUMILIS_ENVIRONMENT")
+
+    if stage is None:
+        stage = os.environ.get("HUMILIS_STAGE") or \
+            _calling_scope_variable("HUMILIS_STAGE")
+
+    if environment:
+        if stage:
+            return "{environment}-{stage}-secrets".format(**locals())
+        else:
+            return "{environment}-secrets".format(**locals())
+
+
+def _state_table_name(environment=None, layer=None, stage=None):
+    """The name of the state table associated to a humilis deployment."""
+    if environment is None:
+        # For backwards compatiblity
+        environment = os.environ.get("HUMILIS_ENVIRONMENT") or \
+            _calling_scope_variable("HUMILIS_ENVIRONMENT")
+    if layer is None:
+        layer = os.environ.get("HUMILIS_LAYER") or \
+            _calling_scope_variable("HUMILIS_LAYER")
+
+    if stage is None:
+        stage = os.environ.get("HUMILIS_STAGE") or \
+            _calling_scope_variable("HUMILIS_STAGE")
+
+    if environment:
+        if stage:
+            return "{environment}-{layer}-{stage}-state".format(**locals())
+        else:
+            return "{environment}-{layer}-state".format(**locals())
+
+
+def _calling_scope_variable(name):
+    """Looks for a variable in the calling scopes."""
+    frame = inspect.stack()[1][0]
+    while name not in frame.f_locals:
+        frame = frame.f_back
+        if frame is None:
+            return None
+    return frame.f_locals[name]
+
+
+def get_secret(key, environment=None, stage=None):
     """Retrieves a secret from the secrets vault."""
     # Get the encrypted secret from DynamoDB
+    table_name = _secrets_table_name(environment=environment, stage=stage)
+    if table_name is None:
+        logger.warning("Can't produce secrets table name: unable to retrieve "
+                       "secret '{}'".format(key))
+        return
+
     client = boto3.client('dynamodb')
     try:
         encrypted = client.get_item(
-            TableName=SECRETS_TABLE_NAME,
+            TableName=table_name,
             Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
     except ClientError:
         print("DynamoDB error when retrieving secret '{}'".format(key))
@@ -52,22 +103,42 @@ def get_secret(key):
         return
 
 
-def get_state(key, table_name=STATE_TABLE_NAME):
+def get_state(key, table_name=None, environment=None, layer=None, stage=None):
     """Gets a state value from the state table."""
+    if table_name is None:
+        table_name = _state_table_name(environment=environment, layer=layer,
+                                       stage=stage)
+
+    if not table_name:
+        logger.warning("Can't produce state table name: unable to retrieve "
+                       "state item '{}'".format(key))
+        return
+
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
     print("Getting key '{}' from table '{}'".format(key, table_name))
     try:
         return table.get_item(Key={"id": key}).get("Item", {}).get("value")
     except ClientError:
-        print("DynamoDB error when retrieving key '{}' from table '{}'".format(
-            key, table_name))
+        logger.warning("DynamoDB error when retrieving key '{}' from table "
+                       "'{}'".format(key, table_name))
         traceback.print_exc()
         return
 
 
-def set_state(key, value, table_name=STATE_TABLE_NAME):
+def set_state(key, value, table_name=None, environment=None, layer=None,
+              stage=None):
     """Sets a state value."""
+    if table_name is None:
+        table_name = _state_table_name(environment=environment, layer=layer,
+                                       stage=stage)
+
+    if not table_name:
+        msg = ("Can't produce state table name: unable to set state "
+               "item '{}'".format(key))
+        logger.error(msg)
+        raise StateTableError(msg)
+        return
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
     print("Putting {} -> {} in DynamoDB table {}".format(key, value,

@@ -23,9 +23,40 @@ def test_get_secret(boto3_resource, boto3_client, monkeypatch):
     # Call to the DynamoDB client to retrieve the encrypted secret
     monkeypatch.setattr("boto3.resource", boto3_resource)
     monkeypatch.setattr("boto3.client", boto3_client)
+    utils.get_secret("sample_secret", environment="dummyenv",
+                     stage="dummystage")
+    boto3_client("dynamodb").get_item.assert_called_with(
+        TableName="dummyenv-dummystage-secrets",
+        Key={"id": {"S": "sample_secret"}})
+
+    # Call to the KMS client to decrypt the secret
+    boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
+
+
+def test_get_secret_no_stage(boto3_resource, boto3_client, monkeypatch):
+    """Gets a secret from DynamoDB without a deployment stage."""
+    # Call to the DynamoDB client to retrieve the encrypted secret
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    monkeypatch.setattr("boto3.client", boto3_client)
+    utils.get_secret("sample_secret", environment="dummyenv")
+    boto3_client("dynamodb").get_item.assert_called_with(
+        TableName="dummyenv-secrets",
+        Key={"id": {"S": "sample_secret"}})
+
+    # Call to the KMS client to decrypt the secret
+    boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
+
+
+def test_get_secret_caller_scope(boto3_resource, boto3_client, monkeypatch):
+    """Gets a secret from DynamoDB."""
+    # Call to the DynamoDB client to retrieve the encrypted secret
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    monkeypatch.setattr("boto3.client", boto3_client)
+    HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
+    HUMILIS_STAGE = "dummystage"      # noqa
     utils.get_secret("sample_secret")
     boto3_client("dynamodb").get_item.assert_called_with(
-        TableName=utils.SECRETS_TABLE_NAME,
+        TableName="dummyenv-dummystage-secrets",
         Key={"id": {"S": "sample_secret"}})
 
     # Call to the KMS client to decrypt the secret
@@ -35,15 +66,45 @@ def test_get_secret(boto3_resource, boto3_client, monkeypatch):
 def test_get_state(boto3_resource, monkeypatch):
     """Gets a state value from DynamoDB."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
+    utils.get_state("sample_state_key", environment="dummyenv",
+                    layer="dummylayer", stage="dummystage")
+    boto3_resource("dynamodb").Table().get_item.assert_called_with(
+        Key={"id": "sample_state_key"})
+
+
+def test_get_state_no_stage(boto3_resource, monkeypatch):
+    """Gets a state value from DynamoDB without a deployment stage."""
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    utils.get_state("sample_state_key", environment="dummyenv",
+                    layer="dummylayer")
+    boto3_resource("dynamodb").Table().get_item.assert_called_with(
+        Key={"id": "sample_state_key"})
+
+
+def test_get_state_caller_scope(boto3_resource, monkeypatch):
+    """Gets a state value from DynamoDB."""
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
+    HUMILIS_LAYER = "dummylayer"      # noqa
+    HUMILIS_STAGE = "dummystage"      # noqa
     utils.get_state("sample_state_key")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
         Key={"id": "sample_state_key"})
 
 
-def test_set_state(boto3_resource, monkeypatch):
-    """Tests setting a state value."""
+def test_set_state_no_state_table(boto3_resource, monkeypatch):
+    """Tests setting a state variable without having a state table."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
-    utils.set_state("sample_state_key", "sample_state_value")
+    with pytest.raises(utils.StateTableError):
+        utils.set_state("sample_state_key", "sample_state_value")
+
+
+def test_set_state(boto3_resource, monkeypatch):
+    """Tests setting a state variable."""
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    utils.set_state("sample_state_key", "sample_state_value",
+                    environment="dummyenv", layer="dummylayer",
+                    stage="dummystage")
     boto3_resource("dynamodb").Table().put_item.assert_called_with(
         Item={"id": "sample_state_key", "value": "sample_state_value"})
 
