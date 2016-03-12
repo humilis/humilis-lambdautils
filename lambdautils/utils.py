@@ -185,37 +185,32 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
     return resp
 
 
-def sentry_monitor(dsn=None):
+def sentry_monitor(func):
     """A decorator that adds Sentry monitoring to a Lambda handler."""
-    if dsn is None:
+    def wrapper(event, context):
         dsn = get_secret("sentry.dsn")
 
-    if dsn is None:
-        logger.warning("Unable to retrieve sentry DSN")
-    elif not hasattr(sentry_monitor, "clients"):
-        client = raven.Client(dsn)
-        clients = {dsn: client}
-        setattr(sentry_monitor, "clients", clients)
-    else:
-        clients = getattr(sentry_monitor, "clients")
-        if dsn not in clients:
-            clients[dsn] = raven.Client(dsn)
-        client = clients[dsn]
-
-    def decorator(func):
-        def wrapper(event, context):
-            if dsn is not None:
-                client.user_context(context_dict(context))
-                try:
-                    return func(event, context)
-                except:
-                    client.captureException()
-                    raise
-            else:
+        if dsn is None:
+            logger.warning("Unable to retrieve sentry DSN")
+        elif not hasattr(sentry_monitor, "clients"):
+            client = raven.Client(dsn)
+            clients = {dsn: client}
+            setattr(sentry_monitor, "clients", clients)
+        else:
+            clients = getattr(sentry_monitor, "clients")
+            if dsn not in clients:
+                clients[dsn] = raven.Client(dsn)
+            client = clients[dsn]
+        if dsn is not None:
+            client.user_context(context_dict(context))
+            try:
                 return func(event, context)
-        return wrapper
-
-    return decorator
+            except:
+                client.captureException()
+                raise
+        else:
+            return func(event, context)
+    return wrapper
 
 
 def context_dict(context):
