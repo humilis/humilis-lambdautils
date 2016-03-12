@@ -3,11 +3,11 @@
 
 package = "lambdautils"
 project = "lambdautils"
-version = '0.0.7'
+version = '0.0.8'
 description = "Simple utilities for AWS Lambda functions"
 authors = ["Innovative Travel Ltd"]
 authors_string = ', '.join(authors)
 emails = ['german@innovativetravel.eu']
 license = 'MIT'
 copyright = '2016 ' + authors_string
-url = 'http://github.com/InnovativeTravel/aws-lambdautils'
+url = 'http://github.com/InnovativeTravel/humilis-lambdautils'
