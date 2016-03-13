@@ -96,11 +96,17 @@ def get_secret(key, environment=None, stage=None):
     # Decrypt using KMS
     client = boto3.client('kms')
     try:
-        return client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
+        value = client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
     except ClientError:
         print("KMS error when trying to decrypt secret")
         traceback.print_exc()
         return
+
+    try:
+        value = json.loads(value)
+    except (TypeError, ValueError):
+        # It's ok, the client should know how to deal with the value
+        pass
 
 
 def get_state(key, table_name=None, environment=None, layer=None, stage=None):
