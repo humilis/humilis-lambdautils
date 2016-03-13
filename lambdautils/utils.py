@@ -118,12 +118,20 @@ def get_state(key, table_name=None, environment=None, layer=None, stage=None):
     table = dynamodb.Table(table_name)
     print("Getting key '{}' from table '{}'".format(key, table_name))
     try:
-        return table.get_item(Key={"id": key}).get("Item", {}).get("value")
+        value = table.get_item(Key={"id": key}).get("Item", {}).get("value")
     except ClientError:
         logger.warning("DynamoDB error when retrieving key '{}' from table "
                        "'{}'".format(key, table_name))
         traceback.print_exc()
         return
+
+    try:
+        value = json.loads(value)
+    except (TypeError, ValueError):
+        # It's ok, the client should know how to deal with the value
+        pass
+
+    return value
 
 
 def set_state(key, value, table_name=None, environment=None, layer=None,
@@ -143,6 +151,15 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
     table = dynamodb.Table(table_name)
     print("Putting {} -> {} in DynamoDB table {}".format(key, value,
                                                          table_name))
+    if not isinstance(value, str):
+        # Serialize using json
+        try:
+            value = json.dumps(value)
+        except TypeError:
+            logger.warning("Unable to json-serialize state '{}".format(
+                key))
+            # Try to store the value as it is
+
     resp = table.put_item(Item={"id": key, "value": value})
     print("Response from DynamoDB: '{}'".format(resp))
     return resp
