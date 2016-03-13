@@ -208,32 +208,36 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
     return resp
 
 
-def sentry_monitor(func):
-    """A decorator that adds Sentry monitoring to a Lambda handler."""
-    def wrapper(event, context):
-        dsn = get_secret("sentry.dsn")
+def sentry_monitor(environment=None, stage=None):
+    def decorator(func):
+        """A decorator that adds Sentry monitoring to a Lambda handler."""
+        def wrapper(event, context):
+            dsn = get_secret("sentry.dsn",
+                             environment=environment,
+                             stage=stage)
 
-        if dsn is None:
-            logger.warning("Unable to retrieve sentry DSN")
-        elif not hasattr(sentry_monitor, "clients"):
-            client = raven.Client(dsn)
-            clients = {dsn: client}
-            setattr(sentry_monitor, "clients", clients)
-        else:
-            clients = getattr(sentry_monitor, "clients")
-            if dsn not in clients:
-                clients[dsn] = raven.Client(dsn)
-            client = clients[dsn]
-        if dsn is not None:
-            client.user_context(context_dict(context))
-            try:
+            if dsn is None:
+                logger.warning("Unable to retrieve sentry DSN")
+            elif not hasattr(sentry_monitor, "clients"):
+                client = raven.Client(dsn)
+                clients = {dsn: client}
+                setattr(sentry_monitor, "clients", clients)
+            else:
+                clients = getattr(sentry_monitor, "clients")
+                if dsn not in clients:
+                    clients[dsn] = raven.Client(dsn)
+                client = clients[dsn]
+            if dsn is not None:
+                client.user_context(context_dict(context))
+                try:
+                    return func(event, context)
+                except:
+                    client.captureException()
+                    raise
+            else:
                 return func(event, context)
-            except:
-                client.captureException()
-                raise
-        else:
-            return func(event, context)
-    return wrapper
+        return wrapper
+    return decorator
 
 
 def context_dict(context):

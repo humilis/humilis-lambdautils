@@ -113,7 +113,8 @@ def test_sentry_monitor(raven_client, context, monkeypatch):
 
     monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
 
-    @lambdautils.utils.sentry_monitor
+    @lambdautils.utils.sentry_monitor(environment="dummyenv",
+                                      stage="dummylayer")
     def lambda_handler(event, context):
         pass
 
@@ -131,7 +132,8 @@ def test_sentry_monitor_exception(raven_client, context, monkeypatch):
     HUMILIS_ENVIRONMENT = "dummyenv"   # noqa
     HUMILIS_STAGE = "dummystage"       # noqa
 
-    @lambdautils.utils.sentry_monitor
+    @lambdautils.utils.sentry_monitor(environment="dummyenv",
+                                      stage="dummylayer")
     def lambda_handler(event, context):
         raise KeyError
 
