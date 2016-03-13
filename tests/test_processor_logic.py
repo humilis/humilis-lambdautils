@@ -118,18 +118,22 @@ def test_set_state(boto3_resource, monkeypatch):
         Item={"id": "sample_state_key", "value": "sample_state_value"})
 
 
-def test_sentry_monitor(raven_client, context, monkeypatch):
+def test_sentry_monitor(boto3_client, raven_client, context, monkeypatch):
     """Tests the sentry_monitor decorator."""
 
     monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
+    monkeypatch.setattr("boto3.client", boto3_client)
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
-                                      stage="dummylayer")
+                                      stage="dummystage")
     def lambda_handler(event, context):
         pass
 
     lambda_handler(None, context)
     raven_client.captureException.assert_not_called()
+    boto3_client("dynamodb").get_item.assert_called_with(
+        TableName="dummyenv-dummystage-secrets",
+        Key={"id": {"S": "sentry.dsn"}})
 
 
 def test_sentry_monitor_exception(raven_client, context, monkeypatch):
