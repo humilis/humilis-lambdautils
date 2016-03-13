@@ -212,6 +212,8 @@ def sentry_monitor(environment=None, stage=None):
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
         def wrapper(event, context):
+            print("Retrieving Sentry DSN for environment '{}' and "
+                  "stage '{}'".format(environment, stage))
             dsn = get_secret("sentry.dsn",
                              environment=environment,
                              stage=stage)

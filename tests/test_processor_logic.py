@@ -83,10 +83,20 @@ def test_get_state_no_stage(boto3_resource, monkeypatch):
 def test_get_state_caller_scope(boto3_resource, monkeypatch):
     """Gets a state value from DynamoDB."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
-    HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
-    HUMILIS_LAYER = "dummylayer"      # noqa
-    HUMILIS_STAGE = "dummystage"      # noqa
-    lambdautils.utils.get_state("sample_state_key")
+
+    def dummy_function():
+        HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
+        HUMILIS_LAYER = "dummylayer"      # noqa
+        HUMILIS_STAGE = "dummystage"      # noqa
+
+        def dummy_function_2():
+            return lambdautils.utils.get_state("sample_state_key")
+        return dummy_function_2()
+
+    dummy_function()
+
+    boto3_resource("dynamodb").Table.assert_called_with(
+        "dummyenv-dummylayer-dummystage-state")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
         Key={"id": "sample_state_key"})
 
