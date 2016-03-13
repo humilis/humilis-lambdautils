@@ -22,8 +22,10 @@ def test_get_secret(boto3_resource, boto3_client, monkeypatch):
     # Call to the DynamoDB client to retrieve the encrypted secret
     monkeypatch.setattr("boto3.resource", boto3_resource)
     monkeypatch.setattr("boto3.client", boto3_client)
-    lambdautils.utils.get_secret("sample_secret", environment="dummyenv",
-                                 stage="dummystage")
+    secret = lambdautils.utils.get_secret("sample_secret",
+                                          environment="dummyenv",
+                                          stage="dummystage")
+    assert secret == "dummy"
     boto3_client("dynamodb").get_item.assert_called_with(
         TableName="dummyenv-dummystage-secrets",
         Key={"id": {"S": "sample_secret"}})

@@ -108,6 +108,8 @@ def get_secret(key, environment=None, stage=None):
         # It's ok, the client should know how to deal with the value
         pass
 
+    return value
+
 
 def get_state(key, table_name=None, environment=None, layer=None, stage=None):
     """Gets a state value from the state table."""
