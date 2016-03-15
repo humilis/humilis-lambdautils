@@ -153,7 +153,9 @@ def test_sentry_monitor_exception_no_error_stream(
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
                                       layer="dummylayer",
-                                      stage="dummystage")
+                                      stage="dummystage",
+                                      error_stream="",
+                                      error_delivery_stream="")
     def lambda_handler(event, context):
         raise KeyError
 
