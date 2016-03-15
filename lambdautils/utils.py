@@ -113,7 +113,7 @@ def get_secret(key, environment=None, stage=None):
             TableName=table_name,
             Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
     except ClientError:
-        print("DynamoDB error when retrieving secret '{}'".format(key))
+        logger.info("DynamoDB error when retrieving secret '{}'".format(key))
         traceback.print_exc()
         return
 
@@ -125,7 +125,7 @@ def get_secret(key, environment=None, stage=None):
     try:
         value = client.decrypt(CiphertextBlob=encrypted)['Plaintext'].decode()
     except ClientError:
-        print("KMS error when trying to decrypt secret")
+        logger.error("KMS error when trying to decrypt secret")
         traceback.print_exc()
         return
 
@@ -151,7 +151,7 @@ def get_state(key, table_name=None, environment=None, layer=None, stage=None):
 
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
-    print("Getting key '{}' from table '{}'".format(key, table_name))
+    logger.info("Getting key '{}' from table '{}'".format(key, table_name))
     try:
         value = table.get_item(Key={"id": key}).get("Item", {}).get("value")
     except ClientError:
@@ -184,8 +184,8 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
         return
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
-    print("Putting {} -> {} in DynamoDB table {}".format(key, value,
-                                                         table_name))
+    logger.info("Putting {} -> {} in DynamoDB table {}".format(key, value,
+                                                               table_name))
     if not isinstance(value, str):
         # Serialize using json
         try:
@@ -196,20 +196,24 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
             # Try to store the value as it is
 
     resp = table.put_item(Item={"id": key, "value": value})
-    print("Response from DynamoDB: '{}'".format(resp))
+    logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp
 
 
 def send_to_delivery_stream(events, stream_name):
     """Sends a list of events to a Firehose delivery stream."""
     records = []
+    if stream_name is None:
+        msg = "Must provide the name of the Kinesis stream: None provided"
+        logger.error(msg)
+        raise RequiresStreamNameError(msg)
     for event in events:
         if not isinstance(event, str):
             # csv events already have a newline
             event = json.dumps(event) + "\n"
         records.append({"Data": event})
     firehose = boto3.client("firehose")
-    print("Delivering {} records to Firehose stream '{}'".format(
+    logger.info("Delivering {} records to Firehose stream '{}'".format(
         len(records), stream_name))
     resp = firehose.put_record_batch(
         DeliveryStreamName=stream_name,
@@ -245,8 +249,8 @@ def sentry_monitor(environment=None, stage=None, layer=None):
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
         def wrapper(event, context):
-            print("Retrieving Sentry DSN for environment '{}' and "
-                  "stage '{}'".format(environment, stage))
+            logger.info("Retrieving Sentry DSN for environment '{}' and "
+                        "stage '{}'".format(environment, stage))
             dsn = get_secret("sentry.dsn",
                              environment=environment,
                              stage=stage)
