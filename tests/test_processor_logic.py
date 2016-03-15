@@ -138,8 +138,46 @@ def test_sentry_monitor(boto3_client, raven_client, context, monkeypatch):
         Key={"id": {"S": "sentry.dsn"}})
 
 
-def test_sentry_monitor_exception(raven_client, context, monkeypatch):
-    """Tests the sentry_monitor decorator."""
+def test_sentry_monitor_exception_no_error_stream(
+        boto3_client, raven_client, context, kinesis_event, monkeypatch):
+    """Tests the sentry_monitor decorator when throwing an exception and
+    lacking an error stream where to dump the errors."""
+    monkeypatch.setattr("boto3.client", boto3_client)
+    monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
+    monkeypatch.setattr("lambdautils.utils.get_secret",
+                        Mock(return_value="dummydsn"))
+    monkeypatch.setattr("lambdautils.utils._error_stream_name",
+                        Mock(return_value=None))
+
+    # Needed to retrieve the sentry token
+    HUMILIS_ENVIRONMENT = "dummyenv"   # noqa
+    HUMILIS_STAGE = "dummystage"       # noqa
+
+    @lambdautils.utils.sentry_monitor(environment="dummyenv",
+                                      layer="dummylayer",
+                                      stage="dummystage")
+    def lambda_handler(event, context):
+        raise KeyError
+
+    with pytest.raises(lambdautils.utils.ErrorStreamError):
+        lambda_handler(kinesis_event, context)
+
+    # Should have captured 3 errors:
+    # * The original KeyError
+    # * The error raised when trying to deliver the error to a nonexisting
+    #   error stream.
+    # * The ErrorStreamError raised by the error handler
+    assert raven_client.captureException.call_count == 3
+
+    # And should have not send the events to the output stream
+    assert boto3_client("kinesis").put_records.assert_not_called
+
+
+def test_sentry_monitor_exception_with_error_stream(
+        boto3_client, raven_client, context, kinesis_event, monkeypatch):
+    """Tests the sentry_monitor decorator when throwing an exception and
+    lacking an error stream where to dump the errors."""
+    monkeypatch.setattr("boto3.client", boto3_client)
     monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
     monkeypatch.setattr("lambdautils.utils.get_secret",
                         Mock(return_value="dummydsn"))
@@ -149,14 +187,20 @@ def test_sentry_monitor_exception(raven_client, context, monkeypatch):
     HUMILIS_STAGE = "dummystage"       # noqa
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
-                                      stage="dummylayer")
+                                      layer="dummylayer",
+                                      stage="dummystage")
     def lambda_handler(event, context):
         raise KeyError
 
-    with pytest.raises(KeyError):
-        lambda_handler(None, context)
+    # Should not raise and just send the events to the error stream
+    lambda_handler(kinesis_event, context)
 
+    # Should have captured only 1 error:
+    # * The original KeyError
     assert raven_client.captureException.call_count == 1
+
+    # And should have send the events to the Kinesis error stream
+    assert boto3_client("kinesis").put_records.call_count == 1
 
 
 def test_context_dict(context):
@@ -183,6 +227,6 @@ def test_send_to_delivery_stream(search_events, boto3_client, monkeypatch):
 def test_unpack_kinesis_event(kinesis_event):
     """Extracts json-serialized events from a Kinesis events."""
     events = lambdautils.utils.unpack_kinesis_event(kinesis_event,
-                                                    post_processor=json.loads)
+                                                    deserializer=json.loads)
     # There should be one event per kinesis record
     assert len(events) == len(kinesis_event["Records"])

@@ -22,6 +22,33 @@ class StateTableError(Exception):
     pass
 
 
+class ErrorStreamError(Exception):
+    pass
+
+
+class RequiresStreamNameError(Exception):
+    pass
+
+
+def _error_stream_name(environment=None, stage=None):
+    """The name of the Kinesis stream used to capture errors."""
+    if environment is None:
+        # For backwards compatiblity
+        environment = os.environ.get("HUMILIS_ENVIRONMENT") or \
+            _calling_scope_variable("HUMILIS_ENVIRONMENT")
+
+    if stage is None:
+        stage = os.environ.get("HUMILIS_STAGE") or \
+            _calling_scope_variable("HUMILIS_STAGE")
+
+    if environment:
+        if stage:
+            return "{environment}{stage}Error".format(
+                environment=environment.title(), stage=stage.title())
+        else:
+            return "{environment}Error".format(environment=environment.title())
+
+
 def _secrets_table_name(environment=None, stage=None):
     """The name of the secrets table associated to a humilis deployment."""
     if environment is None:
@@ -193,6 +220,10 @@ def send_to_delivery_stream(events, stream_name):
 def send_to_kinesis_stream(events, stream_name, partition_key=None):
     """Sends events to a Kinesis stream."""
     records = []
+    if stream_name is None:
+        msg = "Must provide the name of the Kinesis stream: None provided"
+        logger.error(msg)
+        raise RequiresStreamNameError(msg)
     for event in events:
         if not isinstance(event, str):
             event = json.dumps(event)
@@ -210,7 +241,7 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
     return resp
 
 
-def sentry_monitor(environment=None, stage=None):
+def sentry_monitor(environment=None, stage=None, layer=None):
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
         def wrapper(event, context):
@@ -222,22 +253,50 @@ def sentry_monitor(environment=None, stage=None):
 
             if dsn is None:
                 logger.warning("Unable to retrieve sentry DSN")
-            elif not hasattr(sentry_monitor, "clients"):
-                client = raven.Client(dsn)
-                clients = {dsn: client}
-                setattr(sentry_monitor, "clients", clients)
             else:
-                clients = getattr(sentry_monitor, "clients")
-                if dsn not in clients:
-                    clients[dsn] = raven.Client(dsn)
-                client = clients[dsn]
+                client = raven.Client(dsn)
             if dsn is not None:
                 client.user_context(context_dict(context))
                 try:
                     return func(event, context)
                 except:
                     client.captureException()
-                    raise
+                    # Send the failed payloads to the errored events to the
+                    # error stream and resume
+                    error_stream = None
+                    try:
+                        payloads = unpack_kinesis_event(event,
+                                                        deserializer=None)
+
+                        # Add info about the error so that we are able to
+                        # repush the events to the right place after fixing
+                        # them.
+                        error_payloads = [
+                            {"environment": environment,
+                             "layer": layer,
+                             "stage": stage,
+                             "payload": payloads} for payload in payloads]
+
+                        error_stream = _error_stream_name(
+                            environment=environment, stage=stage)
+
+                        send_to_kinesis_stream(error_payloads, error_stream)
+                    except:
+                        client.captureException()
+                        try:
+                            msg = ("Error delivering errors to Error "
+                                   "stream '{}'".format(error_stream))
+                            logger.error(msg)
+                            raise ErrorStreamError(msg)
+                        except:
+                            client.captureException()
+                            # In this case we do need to raise of we will loose
+                            # data
+                            raise
+                    # If we were able to deliver the error events to the error
+                    # stream, we let it pass to prevent blocking the whole
+                    # pipeline.
+                    pass
             else:
                 return func(event, context)
         return wrapper
@@ -257,15 +316,19 @@ def context_dict(context):
         "cognito_identity_pool_id": context.identity.cognito_identity_pool_id}
 
 
-def unpack_kinesis_event(kinesis_event, post_processor=None):
+def unpack_kinesis_event(kinesis_event, deserializer=None):
     """Extracts events (a list of dicts) from a Kinesis event."""
-    records = kinesis_event['Records']
+    records = kinesis_event["Records"]
     events = []
     for rec in records:
-        payload = base64.decodestring(rec['kinesis']['data']).decode()
-        if post_processor is not None:
-            payload = post_processor(payload)
-
+        payload = base64.decodestring(rec["kinesis"]["data"]).decode()
+        if deserializer:
+            try:
+                payload = json.loads(payload)
+            except ValueError:
+                logger.error("Error deserializing Kinesis payload: {}".format(
+                    payload))
+                raise
         events.append(payload)
 
     return events
