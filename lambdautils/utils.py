@@ -30,25 +30,6 @@ class RequiresStreamNameError(Exception):
     pass
 
 
-def _error_stream_name(environment=None, stage=None):
-    """The name of the Kinesis stream used to capture errors."""
-    if environment is None:
-        # For backwards compatiblity
-        environment = os.environ.get("HUMILIS_ENVIRONMENT") or \
-            _calling_scope_variable("HUMILIS_ENVIRONMENT")
-
-    if stage is None:
-        stage = os.environ.get("HUMILIS_STAGE") or \
-            _calling_scope_variable("HUMILIS_STAGE")
-
-    if environment:
-        if stage:
-            return "{environment}{stage}Error".format(
-                environment=environment.title(), stage=stage.title())
-        else:
-            return "{environment}Error".format(environment=environment.title())
-
-
 def _secrets_table_name(environment=None, stage=None):
     """The name of the secrets table associated to a humilis deployment."""
     if environment is None:
@@ -245,7 +226,8 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
     return resp
 
 
-def sentry_monitor(environment=None, stage=None, layer=None):
+def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
+                   error_delivery_stream=None):
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
         def wrapper(event, context):
@@ -267,8 +249,12 @@ def sentry_monitor(environment=None, stage=None, layer=None):
                     client.captureException()
                     # Send the failed payloads to the errored events to the
                     # error stream and resume
-                    error_stream = None
                     try:
+                        if not error_stream and not error_delivery_stream:
+                            msg = ("Error delivering errors to Error "
+                                   "stream '{}'".format(error_stream))
+                            logger.error(msg)
+                            raise ErrorStreamError(msg)
                         payloads = unpack_kinesis_event(event,
                                                         deserializer=None)
 
@@ -281,13 +267,12 @@ def sentry_monitor(environment=None, stage=None, layer=None):
                              "stage": stage,
                              "payload": payloads} for payload in payloads]
 
-                        error_stream = _error_stream_name(
-                            environment=environment, stage=stage)
-
-                        # Note: we assume that both the Kinesis and Firehose
-                        # streams have the same name.
-                        send_to_kinesis_stream(error_payloads, error_stream)
-                        send_to_delivery_stream(error_payloads, error_stream)
+                        if error_stream:
+                            send_to_kinesis_stream(error_payloads,
+                                                   error_stream)
+                        if error_delivery_stream:
+                            send_to_delivery_stream(error_payloads,
+                                                    error_stream)
                     except:
                         client.captureException()
                         try:

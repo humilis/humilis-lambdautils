@@ -146,8 +146,6 @@ def test_sentry_monitor_exception_no_error_stream(
     monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
     monkeypatch.setattr("lambdautils.utils.get_secret",
                         Mock(return_value="dummydsn"))
-    monkeypatch.setattr("lambdautils.utils._error_stream_name",
-                        Mock(return_value=None))
 
     # Needed to retrieve the sentry token
     HUMILIS_ENVIRONMENT = "dummyenv"   # noqa
@@ -189,7 +187,9 @@ def test_sentry_monitor_exception_with_error_stream(
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
                                       layer="dummylayer",
-                                      stage="dummystage")
+                                      stage="dummystage",
+                                      error_stream="ErrorStream",
+                                      error_delivery_stream="ErrorStream")
     def lambda_handler(event, context):
         raise KeyError
 
