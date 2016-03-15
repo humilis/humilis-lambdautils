@@ -4,7 +4,7 @@ lambdautils
 [![Build Status](https://travis-ci.com/InnovativeTravel/humilis-lambdautils.svg?token=hmq4YbNZBSHyLZzpqBCq&branch=master)](https://travis-ci.com/InnovativeTravel/humilis-lambdautils)
 [![PyPI](https://img.shields.io/pypi/v/lambdautils.svg?style=flat)](https://pypi.python.org/pypi/lambdautils)
 
-Shared utilities across Lambda event processors.
+Basic utilities for Lambda event processors.
 
 
 ## Development
