@@ -284,7 +284,10 @@ def sentry_monitor(environment=None, stage=None, layer=None):
                         error_stream = _error_stream_name(
                             environment=environment, stage=stage)
 
+                        # Note: we assume that both the Kinesis and Firehose
+                        # streams have the same name.
                         send_to_kinesis_stream(error_payloads, error_stream)
+                        send_to_delivery_stream(error_payloads, error_stream)
                     except:
                         client.captureException()
                         try:

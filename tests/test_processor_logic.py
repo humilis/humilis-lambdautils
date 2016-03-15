@@ -170,7 +170,8 @@ def test_sentry_monitor_exception_no_error_stream(
     assert raven_client.captureException.call_count == 3
 
     # And should have not send the events to the output stream
-    assert boto3_client("kinesis").put_records.assert_not_called
+    boto3_client("kinesis").put_records.assert_not_called
+    boto3_client("firehose").put_record_batch.assert_not_called
 
 
 def test_sentry_monitor_exception_with_error_stream(
@@ -199,8 +200,9 @@ def test_sentry_monitor_exception_with_error_stream(
     # * The original KeyError
     assert raven_client.captureException.call_count == 1
 
-    # And should have send the events to the Kinesis error stream
+    # And should have send the events to the Kinesis and FH error streams
     assert boto3_client("kinesis").put_records.call_count == 1
+    assert boto3_client("firehose").put_record_batch.call_count == 1
 
 
 def test_context_dict(context):
