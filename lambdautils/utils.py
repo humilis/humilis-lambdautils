@@ -240,7 +240,14 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
             if dsn is None:
                 logger.warning("Unable to retrieve sentry DSN")
             else:
-                client = raven.Client(dsn)
+                try:
+                    client = raven.Client(dsn)
+                except:
+                    # We don't want to break the application. Add some retry
+                    # logic later.
+                    logger.error("Raven client error: skipping Sentry")
+                    logger.error(traceback.print_exc())
+                    dsn = None
             if dsn is not None:
                 client.user_context(context_dict(context))
                 try:

@@ -138,6 +138,31 @@ def test_sentry_monitor(boto3_client, raven_client, context, monkeypatch):
         Key={"id": {"S": "sentry.dsn"}})
 
 
+def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
+                                   monkeypatch):
+    """Tests that sentry_monitor handles raven client errors gracefully."""
+
+    class ClientError(Exception):
+        pass
+
+    def raise_error(dsn):
+        raise ClientError
+
+    monkeypatch.setattr("raven.Client", Mock(side_effect=raise_error))
+    monkeypatch.setattr("boto3.client", boto3_client)
+
+    @lambdautils.utils.sentry_monitor(environment="dummyenv",
+                                      stage="dummystage")
+    def lambda_handler(event, context):
+        pass
+
+    lambda_handler(None, context)
+    raven_client.captureException.assert_not_called()
+    boto3_client("dynamodb").get_item.assert_called_with(
+        TableName="dummyenv-dummystage-secrets",
+        Key={"id": {"S": "sentry.dsn"}})
+
+
 def test_sentry_monitor_exception_no_error_stream(
         boto3_client, raven_client, context, kinesis_event, monkeypatch):
     """Tests the sentry_monitor decorator when throwing an exception and
