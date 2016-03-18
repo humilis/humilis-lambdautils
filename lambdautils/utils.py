@@ -228,6 +228,14 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
 
 def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                    error_delivery_stream=None):
+    config = {
+        "environment": environment,
+        "stage": stage,
+        "layer": layer,
+        "error_stream": error_stream,
+        "error_delivery_stream": error_delivery_stream}
+    logger.info("Environment config: {}".format(json.dumps(config, indent=4)))
+
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
         def wrapper(event, context):
@@ -248,56 +256,75 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                     logger.error("Raven client error: skipping Sentry")
                     logger.error(traceback.print_exc())
                     dsn = None
+
             if dsn is not None:
                 client.user_context(context_dict(context))
+
+            try:
+                return func(event, context)
+            except:
+                if dsn is not None:
+                    try:
+                        client.captureException()
+                    except:
+                        logger.error("Raven error when capturing exception")
+                        logger.error(traceback.print_exc())
+
+                # Send the failed payloads to the errored events to the
+                # error stream and resume
                 try:
-                    return func(event, context)
+                    if not error_stream and not error_delivery_stream:
+                        msg = ("Error delivering errors to Error "
+                               "stream '{}'".format(error_stream))
+                        logger.error(msg)
+                        raise ErrorStreamError(msg)
+                    payloads = unpack_kinesis_event(event,
+                                                    deserializer=None)
+
+                    # Add info about the error so that we are able to
+                    # repush the events to the right place after fixing
+                    # them.
+                    error_payloads = [
+                        {"environment": environment,
+                         "layer": layer,
+                         "stage": stage,
+                         "payload": payloads} for payload in payloads]
+
+                    logger.info("Error payloads: {}".format(
+                        json.dumps(error_payloads, indent=4)))
+
+                    if error_stream:
+                        send_to_kinesis_stream(error_payloads,
+                                               error_stream)
+                        logger.info("Sent payload to Kinesis stream "
+                                    "'{}'".format(error_stream))
+                    else:
+                        logger.info("No error stream specified: skipping")
+
+                    if error_delivery_stream:
+                        send_to_delivery_stream(error_payloads,
+                                                error_stream)
+                        logger.info("Sent payload to Firehose delivery stream "
+                                    "'{}'".format(error_delivery_stream))
+                    else:
+                        logger.info("No delivery stream specified: skipping")
+
                 except:
                     client.captureException()
-                    # Send the failed payloads to the errored events to the
-                    # error stream and resume
                     try:
-                        if not error_stream and not error_delivery_stream:
-                            msg = ("Error delivering errors to Error "
-                                   "stream '{}'".format(error_stream))
-                            logger.error(msg)
-                            raise ErrorStreamError(msg)
-                        payloads = unpack_kinesis_event(event,
-                                                        deserializer=None)
-
-                        # Add info about the error so that we are able to
-                        # repush the events to the right place after fixing
-                        # them.
-                        error_payloads = [
-                            {"environment": environment,
-                             "layer": layer,
-                             "stage": stage,
-                             "payload": payloads} for payload in payloads]
-
-                        if error_stream:
-                            send_to_kinesis_stream(error_payloads,
-                                                   error_stream)
-                        if error_delivery_stream:
-                            send_to_delivery_stream(error_payloads,
-                                                    error_stream)
+                        msg = ("Error delivering errors to Error "
+                               "stream '{}'".format(error_stream))
+                        logger.error(msg)
+                        raise ErrorStreamError(msg)
                     except:
                         client.captureException()
-                        try:
-                            msg = ("Error delivering errors to Error "
-                                   "stream '{}'".format(error_stream))
-                            logger.error(msg)
-                            raise ErrorStreamError(msg)
-                        except:
-                            client.captureException()
-                            # In this case we do need to raise of we will loose
-                            # data
-                            raise
-                    # If we were able to deliver the error events to the error
-                    # stream, we let it pass to prevent blocking the whole
-                    # pipeline.
-                    pass
-            else:
-                return func(event, context)
+                        # In this case we do need to raise of we will loose
+                        # data
+                        raise
+                # If we were able to deliver the error events to the error
+                # stream, we let it pass to prevent blocking the whole
+                # pipeline.
+                pass
         return wrapper
     return decorator
 
