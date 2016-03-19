@@ -303,7 +303,7 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
 
                     if error_delivery_stream:
                         send_to_delivery_stream(error_payloads,
-                                                error_stream)
+                                                error_delivery_stream)
                         logger.info("Sent payload to Firehose delivery stream "
                                     "'{}'".format(error_delivery_stream))
                     else:
@@ -313,7 +313,7 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                     client.captureException()
                     try:
                         msg = ("Error delivering errors to Error "
-                               "stream '{}'".format(error_stream))
+                               "stream '{}'".format(error_delivery_stream))
                         logger.error(msg)
                         raise ErrorStreamError(msg)
                     except:
