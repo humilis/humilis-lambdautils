@@ -267,7 +267,7 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                     try:
                         client.captureException()
                     except:
-                        logger.error("Raven error when capturing exception")
+                        logger.error("Raven error capturing exception")
                         logger.error(traceback.print_exc())
 
                 # Send the failed payloads to the errored events to the
@@ -310,15 +310,25 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                         logger.info("No delivery stream specified: skipping")
 
                 except:
-                    client.captureException()
+                    if dsn is not None:
+                        try:
+                            client.captureException()
+                        except:
+                            logger.error("Raven error capturing exception")
+                            logger.error(traceback.print_exc())
                     try:
                         msg = ("Error delivering errors to Error "
                                "stream '{}'".format(error_delivery_stream))
                         logger.error(msg)
                         raise ErrorStreamError(msg)
                     except:
-                        client.captureException()
-                        # In this case we do need to raise of we will loose
+                        if dsn is not None:
+                            try:
+                                client.captureException()
+                            except:
+                                logger.error("Raven error capturing exception")
+                                logger.error(traceback.print_exc())
+                        # In this case we do need to raise or we will loose
                         # data
                         raise
                 # If we were able to deliver the error events to the error
