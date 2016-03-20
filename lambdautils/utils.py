@@ -270,12 +270,12 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                         logger.error("Raven error capturing exception")
                         logger.error(traceback.print_exc())
 
-                # Send the failed payloads to the errored events to the
-                # error stream and resume
                 try:
+                    # Send the failed payloads to the errored events to the
+                    # error stream and resume
                     if not error_stream and not error_delivery_stream:
-                        msg = ("Error delivering errors to Error "
-                               "stream '{}'".format(error_stream))
+                        msg = ("Error delivering errors to Error stream: "
+                               "no error stream specified")
                         logger.error(msg)
                         raise ErrorStreamError(msg)
                     payloads = unpack_kinesis_event(event,
@@ -316,21 +316,10 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                         except:
                             logger.error("Raven error capturing exception")
                             logger.error(traceback.print_exc())
-                    try:
-                        msg = ("Error delivering errors to Error "
-                               "stream '{}'".format(error_delivery_stream))
-                        logger.error(msg)
-                        raise ErrorStreamError(msg)
-                    except:
-                        if dsn is not None:
-                            try:
-                                client.captureException()
-                            except:
-                                logger.error("Raven error capturing exception")
-                                logger.error(traceback.print_exc())
-                        # In this case we do need to raise or we will loose
-                        # data
-                        raise
+
+                    msg = "Error delivering errors to Error stream(s)"
+                    logger.error(msg)
+                    raise
                 # If we were able to deliver the error events to the error
                 # stream, we let it pass to prevent blocking the whole
                 # pipeline.

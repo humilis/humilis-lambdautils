@@ -187,12 +187,11 @@ def test_sentry_monitor_exception_no_error_stream(
     with pytest.raises(lambdautils.utils.ErrorStreamError):
         lambda_handler(kinesis_event, context)
 
-    # Should have captured 3 errors:
+    # Should have captured 2 errors:
     # * The original KeyError
     # * The error raised when trying to deliver the error to a nonexisting
     #   error stream.
-    # * The ErrorStreamError raised by the error handler
-    assert raven_client.captureException.call_count == 3
+    assert raven_client.captureException.call_count == 2
 
     # And should have not send the events to the output stream
     boto3_client("kinesis").put_records.assert_not_called
