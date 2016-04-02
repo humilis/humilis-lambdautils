@@ -4,7 +4,10 @@ Utilities for AWS Lambda functions
 [![Build Status](https://travis-ci.org/humilis/humilis-lambdautils.svg?branch=master)](https://travis-ci.org/humilis/humilis-lambdautils)
 [![PyPI](https://img.shields.io/pypi/v/lambdautils.svg?style=flat)](https://pypi.python.org/pypi/lambdautils)
 
-Basic utilities for Lambda event processors.
+Basic utilities for Lambda event processors that are deployed using 
+[humilis][humilis] `lambda` references.
+
+[humilis]: https://github.com/humilis/humilis
 
 
 ## Development
