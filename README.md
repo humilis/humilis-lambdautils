@@ -27,6 +27,9 @@ make test
 ```
 
 
-## Who do I ask?
+## Contact
 
-Ask [German](mailto:german@innovativetravel.eu)
+If you have questions, bug reports, suggestions, etc. please create an issue
+on the [GitHub project page][projectpage].
+
+[projectpage]: https://github.com/humilis/humilis-lambdautils
