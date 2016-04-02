@@ -36,3 +36,13 @@ If you have questions, bug reports, suggestions, etc. please create an issue
 on the [GitHub project page][projectpage].
 
 [projectpage]: https://github.com/humilis/humilis-lambdautils
+
+
+## License
+
+This software is licensed under the [MIT license](http://en.wikipedia.org/wiki/MIT_License).
+
+See [License file](https://github.com/humilis/humilis-lambdautils/blob/master/LICENSE.txt).
+
+
+© 2016 German Gomez-Herrero, [FindHotel](http://findhotel.net) and others.
