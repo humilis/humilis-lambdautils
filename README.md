@@ -1,7 +1,7 @@
-lambdautils
-============
+Utilities for AWS Lambda functions
+==================================
 
-[![Build Status](https://travis-ci.com/InnovativeTravel/humilis-lambdautils.svg?token=hmq4YbNZBSHyLZzpqBCq&branch=master)](https://travis-ci.com/InnovativeTravel/humilis-lambdautils)
+[![Build Status](https://travis-ci.com/humilis/humilis-lambdautils.svg?token=hmq4YbNZBSHyLZzpqBCq&branch=master)](https://travis-ci.com/humilis/humilis-lambdautils)
 [![PyPI](https://img.shields.io/pypi/v/lambdautils.svg?style=flat)](https://pypi.python.org/pypi/lambdautils)
 
 Basic utilities for Lambda event processors.
