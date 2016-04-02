@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import traceback
+import urllib2
 import uuid
 
 import boto3
@@ -357,3 +358,37 @@ def unpack_kinesis_event(kinesis_event, deserializer=None):
         events.append(payload)
 
     return events
+
+
+def send_cf_response(event, context, response_status, reason=None,
+                     response_data=None, physical_resource_id=None):
+    """Responds to Cloudformation after a create/update/delete operation."""
+    response_data = response_data or {}
+    reason = reason or "See the details in CloudWatch Log Stream: " + \
+        context.log_stream_name
+    physical_resource_id = physical_resource_id or context.log_stream_name
+    response_body = json.dumps(
+        {
+            'Status': response_status,
+            'Reason': reason,
+            'PhysicalResourceId': physical_resource_id,
+            'StackId': event['StackId'],
+            'RequestId': event['RequestId'],
+            'LogicalResourceId': event['LogicalResourceId'],
+            'Data': response_data
+        }
+    )
+
+    opener = urllib2.build_opener(urllib2.HTTPHandler)
+    request = urllib2.Request(event["ResponseURL"], data=response_body)
+    request.add_header("Content-Type", "")
+    request.add_header("Content-Length", len(response_body))
+    request.get_method = lambda: 'PUT'
+    try:
+        response = opener.open(request)
+        print("Status code: {}".format(response.getcode()))
+        print("Status message: {}".format(response.msg))
+        return True
+    except urllib2.HTTPError as exc:
+        print("Failed executing HTTP request: {}".format(exc.code))
+        return False

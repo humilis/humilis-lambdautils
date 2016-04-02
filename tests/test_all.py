@@ -258,3 +258,26 @@ def test_unpack_kinesis_event(kinesis_event):
                                                     deserializer=json.loads)
     # There should be one event per kinesis record
     assert len(events) == len(kinesis_event["Records"])
+
+
+def test_send_cf_response(cf_kinesis_event, cf_context, monkeypatch):
+    """Tests sending a response to Cloudformation."""
+    monkeypatch.setattr("urllib2.build_opener", Mock())
+    mocked_request = Mock()
+    monkeypatch.setattr("urllib2.Request", mocked_request)
+    lambdautils.utils.send_cf_response(cf_kinesis_event, cf_context, "SUCCESS",
+                                       reason="reason", response_data="data",
+                                       physical_resource_id="id")
+    response_body = json.dumps(
+        {
+            'Status': "SUCCESS",
+            'Reason': "reason",
+            'PhysicalResourceId': "id",
+            'StackId': cf_kinesis_event['StackId'],
+            'RequestId': cf_kinesis_event['RequestId'],
+            'LogicalResourceId': cf_kinesis_event['LogicalResourceId'],
+            'Data': "data"
+        }
+    )
+    mocked_request.assert_called_with(cf_kinesis_event["ResponseURL"],
+                                      data=response_body)
