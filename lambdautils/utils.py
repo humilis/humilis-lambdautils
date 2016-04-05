@@ -120,7 +120,8 @@ def get_secret(key, environment=None, stage=None):
     return value
 
 
-def get_state(key, table_name=None, environment=None, layer=None, stage=None):
+def get_state(key, namespace=None, table_name=None, environment=None,
+              layer=None, stage=None, deserializer=json.loads):
     """Gets a state value from the state table."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
@@ -135,6 +136,8 @@ def get_state(key, table_name=None, environment=None, layer=None, stage=None):
     table = dynamodb.Table(table_name)
     logger.info("Getting key '{}' from table '{}'".format(key, table_name))
     try:
+        if namespace:
+            key = "{}:{}".format(namespace, key)
         value = table.get_item(Key={"id": key}).get("Item", {}).get("value")
     except ClientError:
         logger.warning("DynamoDB error when retrieving key '{}' from table "
@@ -143,7 +146,8 @@ def get_state(key, table_name=None, environment=None, layer=None, stage=None):
         return
 
     try:
-        value = json.loads(value)
+        if deserializer:
+            value = deserializer(value)
     except (TypeError, ValueError):
         # It's ok, the client should know how to deal with the value
         pass
