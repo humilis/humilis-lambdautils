@@ -53,7 +53,7 @@ def _secrets_table_name(environment=None, stage=None):
             return "{environment}-secrets".format(**locals())
 
 
-def _state_table_name(environment=None, layer=None, stage=None, shard=None):
+def _state_table_name(environment=None, layer=None, stage=None, shard_id=None):
     """The name of the state table associated to a humilis deployment."""
     if environment is None:
         # For backwards compatiblity
@@ -67,17 +67,17 @@ def _state_table_name(environment=None, layer=None, stage=None, shard=None):
         stage = os.environ.get("HUMILIS_STAGE") or \
             _calling_scope_variable("HUMILIS_STAGE")
 
-    if shard:
-        shard = "-{}".format(int(shard.split("-")[1]))
+    if shard_id:
+        shard_posfix = "-{}".format(int(shard_id.split("-")[1]))
     else:
-        shard = ""
+        shard_posfix = ""
 
     if environment:
         if stage:
-            return "{environment}-{layer}-{stage}{shard}-state".format(
+            return "{environment}-{layer}-{stage}{shard_posfix}-state".format(
                 **locals())
         else:
-            return "{environment}-{layer}{shard}-state".format(**locals())
+            return "{environment}-{layer}{shard_id}-state".format(**locals())
 
 
 def _calling_scope_variable(name):
@@ -131,11 +131,11 @@ def get_secret(key, environment=None, stage=None):
 
 
 def get_state(key, namespace=None, table_name=None, environment=None,
-              layer=None, stage=None, shard=None, deserializer=json.loads):
+              layer=None, stage=None, shard_id=None, deserializer=json.loads):
     """Gets a state value from the state table."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
-                                       shard=shard, stage=stage)
+                                       shard_id=shard_id, stage=stage)
 
     if not table_name:
         logger.warning("Can't produce state table name: unable to retrieve "
@@ -166,11 +166,12 @@ def get_state(key, namespace=None, table_name=None, environment=None,
 
 
 def set_state(key, value, table_name=None, environment=None, layer=None,
-              stage=None, shard=None, namespace=None, serializer=json.dumps):
+              stage=None, shard_id=None, namespace=None,
+              serializer=json.dumps):
     """Sets a state value."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
-                                       stage=stage, shard=shard)
+                                       stage=stage, shard_id=shard_id)
 
     if not table_name:
         msg = ("Can't produce state table name: unable to set state "
