@@ -162,7 +162,7 @@ def get_state(key, namespace=None, table_name=None, environment=None,
 
 
 def set_state(key, value, table_name=None, environment=None, layer=None,
-              stage=None, shard=None):
+              stage=None, shard=None, namespace=None, serializer=json.dumps):
     """Sets a state value."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
@@ -181,12 +181,16 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
     if not isinstance(value, str):
         # Serialize using json
         try:
-            value = json.dumps(value)
+            value = serializer(value)
         except TypeError:
             logger.warning("Unable to json-serialize state '{}".format(
                 key))
             # Try to store the value as it is
+    elif serializer:
+        logger.warning("Value is already a string: not serializing")
 
+    if namespace:
+        key = "{}:{}".format(namespace, key)
     resp = table.put_item(Item={"id": key, "value": value})
     logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp

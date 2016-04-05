@@ -64,15 +64,21 @@ def test_get_secret_caller_scope(boto3_resource, boto3_client, monkeypatch):
     boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
 
 
-def test_get_state(boto3_resource, monkeypatch):
+@pytest.mark.parametrize(
+    "key,environment,layer,stage,shard,namespace,table,nkey", [
+        ("k", "e", "l", "s", None, None, "e-l-s-state", "k"),
+        ("k", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
+        ("k", "e", "l", "s", "shard-00012", "n", "e-l-s-12-state", "n:k"),
+        ("k", "e", "l", "s", "shard-0001", None, "e-l-s-1-state", "k")])
+def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
+                   stage, shard, namespace, table, nkey):
     """Gets a state value from DynamoDB."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
-    lambdautils.utils.get_state("sample_state_key", environment="dummyenv",
-                                layer="dummylayer", stage="dummystage")
-    boto3_resource("dynamodb").Table.assert_called_with(
-        "dummyenv-dummylayer-dummystage-state")
+    lambdautils.utils.get_state(key, environment=environment, layer=layer,
+                                stage=stage, shard=shard, namespace=namespace)
+    boto3_resource("dynamodb").Table.assert_called_with(table)
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"})
+        Key={"id": nkey})
 
 
 def test_get_state_by_shard(boto3_resource, monkeypatch):
@@ -85,6 +91,18 @@ def test_get_state_by_shard(boto3_resource, monkeypatch):
         "dummyenv-dummylayer-dummystage-1-state")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
         Key={"id": "sample_state_key"})
+
+
+def test_get_state_with_namespace(boto3_resource, monkeypatch):
+    """Gets a state value from DynamoDB."""
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    lambdautils.utils.get_state("sample_state_key", namespace="dummynamespace",
+                                environment="dummyenv", layer="dummylayer",
+                                stage="dummystage", shard="shard-000001")
+    boto3_resource("dynamodb").Table.assert_called_with(
+        "dummyenv-dummylayer-dummystage-1-state")
+    boto3_resource("dynamodb").Table().get_item.assert_called_with(
+        Key={"id": "dummynamespace:sample_state_key"})
 
 
 def test_get_state_no_stage(boto3_resource, monkeypatch):
@@ -124,14 +142,22 @@ def test_set_state_no_state_table(boto3_resource, monkeypatch):
         lambdautils.utils.set_state("sample_state_key", "sample_state_value")
 
 
-def test_set_state(boto3_resource, monkeypatch):
+@pytest.mark.parametrize(
+    "key,value,environment,layer,stage,shard,namespace,table,nkey", [
+        ("k", "v", "e", "l", "s", None, None, "e-l-s-state", "k"),
+        ("k", "v", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
+        ("k", "v", "e", "l", "s", "shard-00012", "n", "e-l-s-12-state", "n:k"),
+        ("k", "v", "e", "l", "s", "shard-0001", None, "e-l-s-1-state", "k")])
+def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
+                   stage, shard, namespace, table, nkey):
     """Tests setting a state variable."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
-    lambdautils.utils.set_state("sample_state_key", "sample_state_value",
-                                environment="dummyenv", layer="dummylayer",
-                                stage="dummystage")
+    lambdautils.utils.set_state(key, value, environment=environment,
+                                layer=layer, stage=stage, shard=shard,
+                                namespace=namespace)
+    boto3_resource("dynamodb").Table.assert_called_with(table)
     boto3_resource("dynamodb").Table().put_item.assert_called_with(
-        Item={"id": "sample_state_key", "value": "sample_state_value"})
+        Item={"id": nkey, "value": value})
 
 
 def test_sentry_monitor(boto3_client, raven_client, context, monkeypatch):
