@@ -222,7 +222,8 @@ def send_to_delivery_stream(events, stream_name):
     return resp
 
 
-def send_to_kinesis_stream(events, stream_name, partition_key=None):
+def send_to_kinesis_stream(events, stream_name, partition_key=None,
+                           serializer=json.dumps):
     """Sends events to a Kinesis stream."""
     records = []
     if stream_name is None:
@@ -230,14 +231,15 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
         logger.error(msg)
         raise RequiresStreamNameError(msg)
     for event in events:
-        if not isinstance(event, str):
-            event = json.dumps(event)
         if partition_key is None:
             partition_key_value = str(uuid.uuid4())
         elif hasattr(partition_key, "__call__"):
             partition_key_value = partition_key(event)
         else:
             partition_key_value = partition_key
+
+        if not isinstance(event, str):
+            event = serializer(event)
 
         record = {"Data": event,
                   "PartitionKey": partition_key_value}
