@@ -294,10 +294,11 @@ def test_send_to_delivery_stream(search_events, boto3_client, monkeypatch):
 
 def test_unpack_kinesis_event(kinesis_event):
     """Extracts json-serialized events from a Kinesis events."""
-    events = lambdautils.utils.unpack_kinesis_event(kinesis_event,
-                                                    deserializer=json.loads)
+    events, shard_id = lambdautils.utils.unpack_kinesis_event(
+        kinesis_event, deserializer=json.loads)
     # There should be one event per kinesis record
     assert len(events) == len(kinesis_event["Records"])
+    assert shard_id == kinesis_event["Records"][0]["eventID"].split(":")[0]
 
 
 def test_send_cf_response(cf_kinesis_event, cf_context, monkeypatch):

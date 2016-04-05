@@ -6,6 +6,7 @@ import base64
 from datetime import datetime
 import json
 from mock import Mock
+import random
 import uuid
 
 import pytest
@@ -33,6 +34,7 @@ def kinesis_event(kinesis_payloads):
     return {
         "Records": [
             {
+                "eventID": "shardId-0000000:{}".format(random.randint(0, 1e9)),
                 "kinesis": {
                     "data": payload,
                     },

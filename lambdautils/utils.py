@@ -31,6 +31,10 @@ class RequiresStreamNameError(Exception):
     pass
 
 
+class BadKinesisEventError(Exception):
+    pass
+
+
 def _secrets_table_name(environment=None, stage=None):
     """The name of the secrets table associated to a humilis deployment."""
     if environment is None:
@@ -360,8 +364,10 @@ def unpack_kinesis_event(kinesis_event, deserializer=None):
     """Extracts events (a list of dicts) from a Kinesis event."""
     records = kinesis_event["Records"]
     events = []
+    shard_ids = set()
     for rec in records:
         payload = base64.decodestring(rec["kinesis"]["data"]).decode()
+        shard_ids.add(rec["eventID"].split(":")[0])
         if deserializer:
             try:
                 payload = json.loads(payload)
@@ -371,7 +377,12 @@ def unpack_kinesis_event(kinesis_event, deserializer=None):
                 raise
         events.append(payload)
 
-    return events
+    if len(shard_ids) > 1:
+        msg = "Kinesis event contains records from several shards: {}".format(
+            shard_ids)
+        raise(BadKinesisEventError(msg))
+
+    return events, shard_ids.pop()
 
 
 def send_cf_response(event, context, response_status, reason=None,
