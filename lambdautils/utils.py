@@ -232,13 +232,11 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None):
     for event in events:
         if not isinstance(event, str):
             event = json.dumps(event)
-        if partition_key is not None:
-            partition_key_value = event.get(partition_key)
-        else:
-            partition_key_value = str(uuid.uuid4())
+        if partition_key is None:
+            partition_key = str(uuid.uuid4())
 
         record = {"Data": event,
-                  "PartitionKey": partition_key_value}
+                  "PartitionKey": partition_key}
         records.append(record)
 
     kinesis = boto3.client("kinesis")
