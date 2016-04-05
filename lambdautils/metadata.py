@@ -10,4 +10,4 @@ authors_string = ', '.join(authors)
 emails = ['german@innovativetravel.eu']
 license = 'MIT'
 copyright = '2016 ' + authors_string
-url = 'http://github.com/InnovativeTravel/humilis-lambdautils'
+url = 'http://github.com/humilis/humilis-lambdautils'
