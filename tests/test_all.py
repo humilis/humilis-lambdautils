@@ -69,6 +69,20 @@ def test_get_state(boto3_resource, monkeypatch):
     monkeypatch.setattr("boto3.resource", boto3_resource)
     lambdautils.utils.get_state("sample_state_key", environment="dummyenv",
                                 layer="dummylayer", stage="dummystage")
+    boto3_resource("dynamodb").Table.assert_called_with(
+        "dummyenv-dummylayer-dummystage-state")
+    boto3_resource("dynamodb").Table().get_item.assert_called_with(
+        Key={"id": "sample_state_key"})
+
+
+def test_get_state_by_shard(boto3_resource, monkeypatch):
+    """Gets a state value from DynamoDB."""
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    lambdautils.utils.get_state("sample_state_key", environment="dummyenv",
+                                layer="dummylayer", stage="dummystage",
+                                shard="shard-000001")
+    boto3_resource("dynamodb").Table.assert_called_with(
+        "dummyenv-dummylayer-dummystage-1-state")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
         Key={"id": "sample_state_key"})
 

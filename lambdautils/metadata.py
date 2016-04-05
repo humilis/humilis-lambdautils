@@ -3,7 +3,7 @@
 
 package = "lambdautils"
 project = "lambdautils"
-version = '0.2.4'
+version = '0.2.5'
 description = "Simple utilities for AWS Lambda functions"
 authors = ["Innovative Travel Ltd"]
 authors_string = ', '.join(authors)
