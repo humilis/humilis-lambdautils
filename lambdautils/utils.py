@@ -312,7 +312,7 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                         {"environment": environment,
                          "layer": layer,
                          "stage": stage,
-                         "payload": payloads} for payload in payloads]
+                         "payload": payload} for payload in payloads]
 
                     logger.info("Error payloads: {}".format(
                         json.dumps(error_payloads, indent=4)))
