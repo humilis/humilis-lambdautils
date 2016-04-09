@@ -292,3 +292,11 @@ def test_send_cf_response(cf_kinesis_event, cf_context, monkeypatch):
     )
     mocked_request.assert_called_with(cf_kinesis_event["ResponseURL"],
                                       data=response_body)
+
+
+def test_in_aws_lambda(monkeypatch):
+    """Tests in_the_cloud."""
+    assert not lambdautils.utils.in_aws_lambda()
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "token")
+    monkeypatch.setenv("AWS_SECURITY_TOKEN", "token")
+    assert lambdautils.utils.in_aws_lambda()

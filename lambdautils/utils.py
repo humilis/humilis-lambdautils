@@ -355,6 +355,12 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
     return decorator
 
 
+def in_aws_lambda():
+    """Returns true if running in AWS Lambda service."""
+    return "AWS_SESSION_TOKEN" in os.environ \
+        and "AWS_SESSION_TOKEN" in os.environ
+
+
 def context_dict(context):
     """Creates a dict with context information for Sentry."""
     d = {
