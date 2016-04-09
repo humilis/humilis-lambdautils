@@ -356,8 +356,8 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
 
 
 def context_dict(context):
-    """Converst the Lambda context object to a dict."""
-    return {
+    """Creates a dict with context information for Sentry."""
+    d = {
         "function_name": context.function_name,
         "function_version": context.function_version,
         "invoked_function_arn": context.invoked_function_arn,
@@ -366,6 +366,10 @@ def context_dict(context):
         "log_group_name": context.log_group_name,
         "cognito_identity_id": context.identity.cognito_identity_id,
         "cognito_identity_pool_id": context.identity.cognito_identity_pool_id}
+    for k, v in os.environ.items():
+        d[k] = v
+
+    return d
 
 
 def unpack_kinesis_event(kinesis_event, deserializer=None):
