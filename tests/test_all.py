@@ -244,7 +244,7 @@ def test_sentry_monitor_exception_with_error_stream(
 def test_context_dict(context):
     """Tests utility context_dict."""
     d = lambdautils.utils.context_dict(context)
-    assert len(d) == 8
+    assert len(d) == 8 + len(os.environ)
     assert d["function_name"] == context.function_name
 
 
