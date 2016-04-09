@@ -367,6 +367,9 @@ def context_dict(context):
         "cognito_identity_id": context.identity.cognito_identity_id,
         "cognito_identity_pool_id": context.identity.cognito_identity_pool_id}
     for k, v in os.environ.items():
+        if k in {"AWS_SECURITY_TOKEN", "AWS_SESSION_TOKEN"}:
+            # Do not log credential info
+            continue
         d[k] = v
 
     return d
