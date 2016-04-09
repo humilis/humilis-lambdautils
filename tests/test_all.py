@@ -68,8 +68,9 @@ def test_get_secret_caller_scope(boto3_resource, boto3_client, monkeypatch):
     "key,environment,layer,stage,shard_id,namespace,table,nkey", [
         ("k", "e", "l", "s", None, None, "e-l-s-state", "k"),
         ("k", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
-        ("k", "e", "l", "s", "shard-00012", "n", "e-l-s-12-state", "n:k"),
-        ("k", "e", "l", "s", "shard-0001", None, "e-l-s-1-state", "k")])
+        ("k", "e", "l", "s", "s-00012", "n", "e-l-s-state", "s-00012:n:k"),
+        ("k", "e", "l", None, "s-00012", "n", "e-l-state", "s-00012:n:k"),
+        ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", "s-0001:k")])
 def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
                    stage, shard_id, namespace, table, nkey):
     """Gets a state value from DynamoDB."""
@@ -80,15 +81,6 @@ def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
     boto3_resource("dynamodb").Table.assert_called_with(table)
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
         Key={"id": nkey})
-
-
-def test_get_state_no_stage(boto3_resource, monkeypatch):
-    """Gets a state value from DynamoDB without a deployment stage."""
-    monkeypatch.setattr("boto3.resource", boto3_resource)
-    lambdautils.utils.get_state("sample_state_key", environment="dummyenv",
-                                layer="dummylayer")
-    boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"})
 
 
 def test_get_state_caller_scope(boto3_resource, monkeypatch):
@@ -123,8 +115,9 @@ def test_set_state_no_state_table(boto3_resource, monkeypatch):
     "key,value,environment,layer,stage,shard_id,namespace,table,nkey", [
         ("k", "v", "e", "l", "s", None, None, "e-l-s-state", "k"),
         ("k", "v", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
-        ("k", "v", "e", "l", "s", "shard-00012", "n", "e-l-s-12-state", "n:k"),
-        ("k", "v", "e", "l", "s", "shard-0001", None, "e-l-s-1-state", "k")])
+        ("k", "v", "e", "l", "s", "s1", "n", "e-l-s-state", "s1:n:k"),
+        ("k", "v", "e", "l", None, "s-00012", "n", "e-l-state", "s-00012:n:k"),
+        ("k", "v", "e", "l", "s", "s2", None, "e-l-s-state", "s2:k")])
 def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
                    stage, shard_id, namespace, table, nkey):
     """Tests setting a state variable."""

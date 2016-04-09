@@ -53,7 +53,7 @@ def _secrets_table_name(environment=None, stage=None):
             return "{environment}-secrets".format(**locals())
 
 
-def _state_table_name(environment=None, layer=None, stage=None, shard_id=None):
+def _state_table_name(environment=None, layer=None, stage=None):
     """The name of the state table associated to a humilis deployment."""
     if environment is None:
         # For backwards compatiblity
@@ -67,17 +67,12 @@ def _state_table_name(environment=None, layer=None, stage=None, shard_id=None):
         stage = os.environ.get("HUMILIS_STAGE") or \
             _calling_scope_variable("HUMILIS_STAGE")
 
-    if shard_id:
-        shard_posfix = "-{}".format(int(shard_id.split("-")[1]))
-    else:
-        shard_posfix = ""
-
     if environment:
         if stage:
-            return "{environment}-{layer}-{stage}{shard_posfix}-state".format(
+            return "{environment}-{layer}-{stage}-state".format(
                 **locals())
         else:
-            return "{environment}-{layer}{shard_id}-state".format(**locals())
+            return "{environment}-{layer}-state".format(**locals())
 
 
 def _calling_scope_variable(name):
@@ -135,7 +130,7 @@ def get_state(key, namespace=None, table_name=None, environment=None,
     """Gets a state value from the state table."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
-                                       shard_id=shard_id, stage=stage)
+                                       stage=stage)
 
     if not table_name:
         logger.warning("Can't produce state table name: unable to retrieve "
@@ -148,6 +143,10 @@ def get_state(key, namespace=None, table_name=None, environment=None,
     try:
         if namespace:
             key = "{}:{}".format(namespace, key)
+
+        if shard_id:
+            key = "{}:{}".format(shard_id, key)
+
         value = table.get_item(Key={"id": key}).get("Item", {}).get("value")
     except ClientError:
         logger.warning("DynamoDB error when retrieving key '{}' from table "
@@ -171,7 +170,7 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
     """Sets a state value."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
-                                       stage=stage, shard_id=shard_id)
+                                       stage=stage)
 
     if not table_name:
         msg = ("Can't produce state table name: unable to set state "
@@ -196,6 +195,10 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
 
     if namespace:
         key = "{}:{}".format(namespace, key)
+
+    if shard_id:
+        key = "{}:{}".format(shard_id, key)
+
     resp = table.put_item(Item={"id": key, "value": value})
     logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp
