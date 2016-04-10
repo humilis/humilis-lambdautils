@@ -253,15 +253,19 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None,
     return resp
 
 
-def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
-                   error_delivery_stream=None):
+def sentry_monitor(environment=None, stage=None, layer=None,
+                   error_stream=None):
+    if not error_stream:
+        error_stream = {}
     config = {
         "environment": environment,
         "stage": stage,
         "layer": layer,
-        "error_stream": error_stream,
-        "error_delivery_stream": error_delivery_stream}
-    logger.info("Environment config: {}".format(json.dumps(config, indent=4)))
+        "mapper": error_stream.get("mapper"),
+        "filter": error_stream.get("filter"),
+        "error_stream": error_stream.get("kinesis_stream"),
+        "error_delivery_stream": error_stream.get("firehose_delivery_stream")}
+    logger.info("Environment config: {}".format(config))
 
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
@@ -300,39 +304,57 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                 try:
                     # Send the failed payloads to the errored events to the
                     # error stream and resume
-                    if not error_stream and not error_delivery_stream:
-                        msg = ("Error delivering errors to Error stream: "
-                               "no error stream specified")
+                    if not config["error_stream"] \
+                            and not config["error_delivery_stream"]:
+                        msg = ("Error sending errors to Error stream: "
+                               "no error streams were provided")
                         logger.error(msg)
                         raise ErrorStreamError(msg)
-                    payloads = unpack_kinesis_event(event,
-                                                    deserializer=None)
+                    payloads, shard_id = unpack_kinesis_event(
+                        event, deserializer=None)
 
                     # Add info about the error so that we are able to
                     # repush the events to the right place after fixing
                     # them.
-                    error_payloads = [
-                        {"environment": environment,
-                         "layer": layer,
-                         "stage": stage,
-                         "payload": payload} for payload in payloads]
+                    error_payloads = []
+                    fc = config["filter"]
+                    mc = config["mapper"]
+                    state_args = dict(environment=environment, layer=layer,
+                                      stage=stage, shard_id=shard_id)
+                    for p in payloads:
+                        if fc and not fc(p, state_args):
+                            continue
+                        if mc:
+                            p = mc(p, state_args)
+
+                        payload = {
+                            "context": state_args,
+                            "payload": p}
+
+                        error_payloads.append(payload)
 
                     logger.info("Error payloads: {}".format(
                         json.dumps(error_payloads, indent=4)))
 
-                    if error_stream:
+                    if not error_payloads:
+                        logger.info("All error payloads were filtered out: "
+                                    "will silently ignore the errors")
+                        return
+
+                    if config["error_stream"]:
                         send_to_kinesis_stream(error_payloads,
-                                               error_stream)
+                                               config["error_stream"])
                         logger.info("Sent payload to Kinesis stream "
                                     "'{}'".format(error_stream))
                     else:
                         logger.info("No error stream specified: skipping")
 
-                    if error_delivery_stream:
-                        send_to_delivery_stream(error_payloads,
-                                                error_delivery_stream)
-                        logger.info("Sent payload to Firehose delivery stream "
-                                    "'{}'".format(error_delivery_stream))
+                    if config["error_delivery_stream"]:
+                        send_to_delivery_stream(
+                            error_payloads, config["error_delivery_stream"])
+                        msg = ("Sent payload to Firehose delivery stream "
+                               "'{}'").format(config["error_delivery_stream"])
+                        logger.info(msg)
                     else:
                         logger.info("No delivery stream specified: skipping")
 
@@ -348,7 +370,7 @@ def sentry_monitor(environment=None, stage=None, layer=None, error_stream=None,
                     logger.error(msg)
                     raise
                 # If we were able to deliver the error events to the error
-                # stream, we let it pass to prevent blocking the whole
+                # stream, we silent the exception to prevent blocking the
                 # pipeline.
                 pass
         return wrapper

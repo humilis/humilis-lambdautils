@@ -53,6 +53,7 @@ def test_get_secret_caller_scope(boto3_resource, boto3_client, monkeypatch):
     # Call to the DynamoDB client to retrieve the encrypted secret
     monkeypatch.setattr("boto3.resource", boto3_resource)
     monkeypatch.setattr("boto3.client", boto3_client)
+
     HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
     HUMILIS_STAGE = "dummystage"      # noqa
     lambdautils.utils.get_secret("sample_secret")
@@ -130,24 +131,6 @@ def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
         Item={"id": nkey, "value": value})
 
 
-def test_sentry_monitor(boto3_client, raven_client, context, monkeypatch):
-    """Tests the sentry_monitor decorator."""
-
-    monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
-    monkeypatch.setattr("boto3.client", boto3_client)
-
-    @lambdautils.utils.sentry_monitor(environment="dummyenv",
-                                      stage="dummystage")
-    def lambda_handler(event, context):
-        pass
-
-    lambda_handler(None, context)
-    raven_client.captureException.assert_not_called()
-    boto3_client("dynamodb").get_item.assert_called_with(
-        TableName="dummyenv-dummystage-secrets",
-        Key={"id": {"S": "sentry.dsn"}})
-
-
 def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
                                    monkeypatch):
     """Tests that sentry_monitor handles raven client errors gracefully."""
@@ -173,42 +156,19 @@ def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
         Key={"id": {"S": "sentry.dsn"}})
 
 
-def test_sentry_monitor_exception_no_error_stream(
-        boto3_client, raven_client, context, kinesis_event, monkeypatch):
-    """Tests the sentry_monitor decorator when throwing an exception and
-    lacking an error stream where to dump the errors."""
-    monkeypatch.setattr("boto3.client", boto3_client)
-    monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
-    monkeypatch.setattr("lambdautils.utils.get_secret",
-                        Mock(return_value="dummydsn"))
-
-    # Needed to retrieve the sentry token
-    HUMILIS_ENVIRONMENT = "dummyenv"   # noqa
-    HUMILIS_STAGE = "dummystage"       # noqa
-
-    @lambdautils.utils.sentry_monitor(environment="dummyenv",
-                                      layer="dummylayer",
-                                      stage="dummystage",
-                                      error_stream="",
-                                      error_delivery_stream="")
-    def lambda_handler(event, context):
-        raise KeyError
-
-    with pytest.raises(lambdautils.utils.ErrorStreamError):
-        lambda_handler(kinesis_event, context)
-
-    # Should have captured 2 errors:
-    # * The original KeyError
-    # * The error raised when trying to deliver the error to a nonexisting
-    #   error stream.
-    assert raven_client.captureException.call_count == 2
-
-    # And should have not send the events to the output stream
-    boto3_client("kinesis").put_records.assert_not_called
-    boto3_client("firehose").put_record_batch.assert_not_called
-
-
+@pytest.mark.parametrize(
+    "kstream, fstream, mapper, filter, rcalls, kcalls, fcalls", [
+        ("a", "b", None, None, 1, 1, 1),
+        (None, "b", None, None, 1, 0, 1),
+        (None, None, None, None, 2, 0, 0),
+        (None, None, lambda x, sa: x, lambda x, sa: True, 2, 0, 0),
+        ("a", "b", None, lambda x, sa: True, 1, 1, 1),
+        ("a", "b", None, lambda x, sa: False, 1, 0, 0),
+        ("a", "b", lambda x, sa: x, lambda x, sa: False, 1, 0, 0),
+        ("a", "b", lambda x, sa: x, lambda x, sa: True, 1, 1, 1),
+        ("a", None, None, None, 1, 1, 0)])
 def test_sentry_monitor_exception_with_error_stream(
+        kstream, fstream, mapper, filter, rcalls, kcalls, fcalls,
         boto3_client, raven_client, context, kinesis_event, monkeypatch):
     """Tests the sentry_monitor decorator when throwing an exception and
     lacking an error stream where to dump the errors."""
@@ -217,28 +177,33 @@ def test_sentry_monitor_exception_with_error_stream(
     monkeypatch.setattr("lambdautils.utils.get_secret",
                         Mock(return_value="dummydsn"))
 
-    # Needed to retrieve the sentry token
-    HUMILIS_ENVIRONMENT = "dummyenv"   # noqa
-    HUMILIS_STAGE = "dummystage"       # noqa
+    error_stream = {
+        "kinesis_stream": kstream,
+        "firehose_delivery_stream": fstream,
+        "mapper": mapper,
+        "filter": filter}
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
                                       layer="dummylayer",
                                       stage="dummystage",
-                                      error_stream="ErrorStream",
-                                      error_delivery_stream="ErrorStream")
+                                      error_stream=error_stream)
     def lambda_handler(event, context):
         raise KeyError
 
     # Should not raise and just send the events to the error stream
-    lambda_handler(kinesis_event, context)
+    if not kstream and not fstream:
+        with pytest.raises(lambdautils.utils.ErrorStreamError):
+            lambda_handler(kinesis_event, context)
+    else:
+        lambda_handler(kinesis_event, context)
 
     # Should have captured only 1 error:
     # * The original KeyError
-    assert raven_client.captureException.call_count == 1
+    assert raven_client.captureException.call_count == rcalls
 
     # And should have send the events to the Kinesis and FH error streams
-    assert boto3_client("kinesis").put_records.call_count == 1
-    assert boto3_client("firehose").put_record_batch.call_count == 1
+    assert boto3_client("kinesis").put_records.call_count == kcalls
+    assert boto3_client("firehose").put_record_batch.call_count == fcalls
 
 
 def test_context_dict(context):
