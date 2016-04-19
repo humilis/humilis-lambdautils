@@ -206,8 +206,13 @@ def test_sentry_monitor_exception_with_error_stream(
     assert boto3_client("firehose").put_record_batch.call_count == fcalls
 
 
-def test_sentry_monitor_critical_exception(context, kinesis_event):
+def test_sentry_monitor_critical_exception(context, kinesis_event,
+                                           boto3_client, monkeypatch):
     """Tests that sentry_monitor reraises critical exceptions."""
+
+    # Need to Mock to pass tests on travis (due to lacking AWS boto default
+    # region config).
+    monkeypatch.setattr("boto3.client", boto3_client)
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
                                       layer="dummylayer",
