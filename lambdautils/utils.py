@@ -302,6 +302,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
             try:
                 return func(event, context)
             except CriticalError:
+                client.captureException()
                 raise
             except:
                 if dsn is not None:

@@ -207,12 +207,12 @@ def test_sentry_monitor_exception_with_error_stream(
 
 
 def test_sentry_monitor_critical_exception(context, kinesis_event,
-                                           boto3_client, monkeypatch):
+                                           boto3_client, raven_client,
+                                           monkeypatch):
     """Tests that sentry_monitor reraises critical exceptions."""
 
-    # Need to Mock to pass tests on travis (due to lacking AWS boto default
-    # region config).
     monkeypatch.setattr("boto3.client", boto3_client)
+    monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
                                       layer="dummylayer",
