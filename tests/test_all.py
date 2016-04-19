@@ -206,6 +206,19 @@ def test_sentry_monitor_exception_with_error_stream(
     assert boto3_client("firehose").put_record_batch.call_count == fcalls
 
 
+def test_sentry_monitor_critical_exception(context, kinesis_event):
+    """Tests that sentry_monitor reraises critical exceptions."""
+
+    @lambdautils.utils.sentry_monitor(environment="dummyenv",
+                                      layer="dummylayer",
+                                      stage="dummystage")
+    def lambda_handler(event, context):
+        raise lambdautils.utils.CriticalError(KeyError)
+
+    with pytest.raises(lambdautils.utils.CriticalError):
+        lambda_handler(kinesis_event, context)
+
+
 def test_context_dict(context):
     """Tests utility context_dict."""
     d = lambdautils.utils.context_dict(context)

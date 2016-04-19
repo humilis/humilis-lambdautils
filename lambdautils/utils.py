@@ -19,6 +19,14 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+class CriticalError(Exception):
+    def __init__(self, exception):
+        self.__exception = exception
+
+    def __str__(self):
+        return str(self.__exception)
+
+
 class StateTableError(Exception):
     pass
 
@@ -293,6 +301,8 @@ def sentry_monitor(environment=None, stage=None, layer=None,
 
             try:
                 return func(event, context)
+            except CriticalError:
+                raise
             except:
                 if dsn is not None:
                     try:
