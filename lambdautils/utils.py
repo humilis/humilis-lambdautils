@@ -93,10 +93,14 @@ def _calling_scope_variable(name):
     return frame.f_locals[name]
 
 
-def get_secret(key, environment=None, stage=None):
+def get_secret(key, environment=None, stage=None, namespace=None):
     """Retrieves a secret from the secrets vault."""
     # Get the encrypted secret from DynamoDB
     table_name = _secrets_table_name(environment=environment, stage=stage)
+
+    if namespace:
+        key = "{}:{}".format(namespace, key)
+
     if table_name is None:
         logger.warning("Can't produce secrets table name: unable to retrieve "
                        "secret '{}'".format(key))

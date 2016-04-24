@@ -17,32 +17,26 @@ sys.path.append(lambda_dir)
 import lambdautils.utils
 
 
-def test_get_secret(boto3_resource, boto3_client, monkeypatch):
+@pytest.mark.parametrize(
+    "key,environment,stage,namespace,table,nkey", [
+        ("k", "e", "s", None, "e-s-secrets", "k"),
+        ("k", "e", None, None, "e-secrets", "k"),
+        ("k", "e", None, "n", "e-secrets", "n:k"),
+        ("k", "e", "s", "n", "e-s-secrets", "n:k")])
+def test_get_secret(key, environment, stage, namespace, table, nkey,
+                    boto3_resource, boto3_client, monkeypatch):
     """Gets a secret from DynamoDB."""
     # Call to the DynamoDB client to retrieve the encrypted secret
     monkeypatch.setattr("boto3.resource", boto3_resource)
     monkeypatch.setattr("boto3.client", boto3_client)
-    secret = lambdautils.utils.get_secret("sample_secret",
-                                          environment="dummyenv",
-                                          stage="dummystage")
+    secret = lambdautils.utils.get_secret(key,
+                                          namespace=namespace,
+                                          environment=environment,
+                                          stage=stage)
     assert secret == "dummy"
     boto3_client("dynamodb").get_item.assert_called_with(
-        TableName="dummyenv-dummystage-secrets",
-        Key={"id": {"S": "sample_secret"}})
-
-    # Call to the KMS client to decrypt the secret
-    boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
-
-
-def test_get_secret_no_stage(boto3_resource, boto3_client, monkeypatch):
-    """Gets a secret from DynamoDB without a deployment stage."""
-    # Call to the DynamoDB client to retrieve the encrypted secret
-    monkeypatch.setattr("boto3.resource", boto3_resource)
-    monkeypatch.setattr("boto3.client", boto3_client)
-    lambdautils.utils.get_secret("sample_secret", environment="dummyenv")
-    boto3_client("dynamodb").get_item.assert_called_with(
-        TableName="dummyenv-secrets",
-        Key={"id": {"S": "sample_secret"}})
+        TableName=table,
+        Key={"id": {"S": nkey}})
 
     # Call to the KMS client to decrypt the secret
     boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
