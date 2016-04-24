@@ -275,6 +275,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
         "layer": layer,
         "mapper": error_stream.get("mapper"),
         "filter": error_stream.get("filter"),
+        "partition_key": error_stream.get("partition_key"),
         "error_stream": error_stream.get("kinesis_stream"),
         "error_delivery_stream": error_stream.get("firehose_delivery_stream")}
     logger.info("Environment config: {}".format(config))
@@ -357,8 +358,9 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                         return
 
                     if config["error_stream"]:
-                        send_to_kinesis_stream(error_payloads,
-                                               config["error_stream"])
+                        send_to_kinesis_stream(
+                            error_payloads, config["error_stream"],
+                            partition_key=config["partition_key"])
                         logger.info("Sent payload to Kinesis stream "
                                     "'{}'".format(error_stream))
                     else:
