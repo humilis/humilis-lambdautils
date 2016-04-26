@@ -134,7 +134,8 @@ def get_state(key, table_name=None, environment=None, layer=None, stage=None):
     table = dynamodb.Table(table_name)
     logger.info("Getting key '{}' from table '{}'".format(key, table_name))
     try:
-        value = table.get_item(Key={"id": key}).get("Item", {}).get("value")
+        value = table.get_item(
+            Key={"id": key}, ConsistentRead=True).get("Item", {}).get("value")
     except ClientError:
         logger.warning("DynamoDB error when retrieving key '{}' from table "
                        "'{}'".format(key, table_name))

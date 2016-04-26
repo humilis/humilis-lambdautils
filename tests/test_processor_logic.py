@@ -70,7 +70,8 @@ def test_get_state(boto3_resource, monkeypatch):
     lambdautils.utils.get_state("sample_state_key", environment="dummyenv",
                                 layer="dummylayer", stage="dummystage")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"})
+        Key={"id": "sample_state_key"},
+        ConsistentRead=True)
 
 
 def test_get_state_no_stage(boto3_resource, monkeypatch):
@@ -79,7 +80,7 @@ def test_get_state_no_stage(boto3_resource, monkeypatch):
     lambdautils.utils.get_state("sample_state_key", environment="dummyenv",
                                 layer="dummylayer")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"})
+        Key={"id": "sample_state_key"}, ConsistentRead=True)
 
 
 def test_get_state_caller_scope(boto3_resource, monkeypatch):
@@ -100,7 +101,7 @@ def test_get_state_caller_scope(boto3_resource, monkeypatch):
     boto3_resource("dynamodb").Table.assert_called_with(
         "dummyenv-dummylayer-dummystage-state")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"})
+        Key={"id": "sample_state_key"}, ConsistentRead=True)
 
 
 def test_set_state_no_state_table(boto3_resource, monkeypatch):
