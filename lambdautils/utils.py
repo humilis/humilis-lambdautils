@@ -341,7 +341,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                         if fc and not fc(p, state_args):
                             continue
                         if mc:
-                            p = mc(p, state_args)
+                            mc(p, state_args)
 
                         payload = {
                             "context": state_args,
