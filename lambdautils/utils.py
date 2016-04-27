@@ -2,7 +2,6 @@
 """Utilities for Lambda functions deployed using humilis."""
 
 import base64
-import inspect
 import json
 import logging
 import os
@@ -46,13 +45,10 @@ class BadKinesisEventError(Exception):
 def _secrets_table_name(environment=None, stage=None):
     """The name of the secrets table associated to a humilis deployment."""
     if environment is None:
-        # For backwards compatiblity
-        environment = os.environ.get("HUMILIS_ENVIRONMENT") or \
-            _calling_scope_variable("HUMILIS_ENVIRONMENT")
+        environment = os.environ.get("HUMILIS_ENVIRONMENT")
 
     if stage is None:
-        stage = os.environ.get("HUMILIS_STAGE") or \
-            _calling_scope_variable("HUMILIS_STAGE")
+        stage = os.environ.get("HUMILIS_STAGE")
 
     if environment:
         if stage:
@@ -65,15 +61,12 @@ def _state_table_name(environment=None, layer=None, stage=None):
     """The name of the state table associated to a humilis deployment."""
     if environment is None:
         # For backwards compatiblity
-        environment = os.environ.get("HUMILIS_ENVIRONMENT") or \
-            _calling_scope_variable("HUMILIS_ENVIRONMENT")
+        environment = os.environ.get("HUMILIS_ENVIRONMENT")
     if layer is None:
-        layer = os.environ.get("HUMILIS_LAYER") or \
-            _calling_scope_variable("HUMILIS_LAYER")
+        layer = os.environ.get("HUMILIS_LAYER")
 
     if stage is None:
-        stage = os.environ.get("HUMILIS_STAGE") or \
-            _calling_scope_variable("HUMILIS_STAGE")
+        stage = os.environ.get("HUMILIS_STAGE")
 
     if environment:
         if stage:
@@ -81,16 +74,6 @@ def _state_table_name(environment=None, layer=None, stage=None):
                 **locals())
         else:
             return "{environment}-{layer}-state".format(**locals())
-
-
-def _calling_scope_variable(name):
-    """Looks for a variable in the calling scopes."""
-    frame = inspect.stack()[1][0]
-    while name not in frame.f_locals:
-        frame = frame.f_back
-        if frame is None:
-            return None
-    return frame.f_locals[name]
 
 
 def get_secret(key, environment=None, stage=None, namespace=None):

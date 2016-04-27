@@ -42,23 +42,6 @@ def test_get_secret(key, environment, stage, namespace, table, nkey,
     boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
 
 
-def test_get_secret_caller_scope(boto3_resource, boto3_client, monkeypatch):
-    """Gets a secret from DynamoDB."""
-    # Call to the DynamoDB client to retrieve the encrypted secret
-    monkeypatch.setattr("boto3.resource", boto3_resource)
-    monkeypatch.setattr("boto3.client", boto3_client)
-
-    HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
-    HUMILIS_STAGE = "dummystage"      # noqa
-    lambdautils.utils.get_secret("sample_secret")
-    boto3_client("dynamodb").get_item.assert_called_with(
-        TableName="dummyenv-dummystage-secrets",
-        Key={"id": {"S": "sample_secret"}})
-
-    # Call to the KMS client to decrypt the secret
-    boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
-
-
 @pytest.mark.parametrize(
     "key,environment,layer,stage,shard_id,namespace,table,consistent,nkey", [
         ("k", "e", "l", "s", None, None, "e-l-s-state", False, "k"),
@@ -80,27 +63,6 @@ def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
         consistent = True
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
         Key={"id": nkey}, ConsistentRead=consistent)
-
-
-def test_get_state_caller_scope(boto3_resource, monkeypatch):
-    """Gets a state value from DynamoDB."""
-    monkeypatch.setattr("boto3.resource", boto3_resource)
-
-    def dummy_function():
-        HUMILIS_ENVIRONMENT = "dummyenv"  # noqa
-        HUMILIS_LAYER = "dummylayer"      # noqa
-        HUMILIS_STAGE = "dummystage"      # noqa
-
-        def dummy_function_2():
-            return lambdautils.utils.get_state("sample_state_key")
-        return dummy_function_2()
-
-    dummy_function()
-
-    boto3_resource("dynamodb").Table.assert_called_with(
-        "dummyenv-dummylayer-dummystage-state")
-    boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"}, ConsistentRead=True)
 
 
 def test_set_state_no_state_table(boto3_resource, monkeypatch):
