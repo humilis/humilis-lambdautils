@@ -138,8 +138,11 @@ def get_secret(key, environment=None, stage=None, namespace=None):
 
 
 def get_state(key, namespace=None, table_name=None, environment=None,
-              layer=None, stage=None, shard_id=None, deserializer=json.loads):
+              layer=None, stage=None, shard_id=None,
+              consistent=None, deserializer=json.loads):
     """Gets a state value from the state table."""
+    if consistent is None:
+        consistent = True
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
                                        stage=stage)
@@ -159,7 +162,9 @@ def get_state(key, namespace=None, table_name=None, environment=None,
         if shard_id:
             key = "{}:{}".format(shard_id, key)
 
-        value = table.get_item(Key={"id": key}).get("Item", {}).get("value")
+        value = table.get_item(
+            Key={"id": key}, ConsistentRead=consistent).get(
+                "Item", {}).get("value")
     except ClientError:
         logger.warning("DynamoDB error when retrieving key '{}' from table "
                        "'{}'".format(key, table_name))

@@ -60,22 +60,26 @@ def test_get_secret_caller_scope(boto3_resource, boto3_client, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "key,environment,layer,stage,shard_id,namespace,table,nkey", [
-        ("k", "e", "l", "s", None, None, "e-l-s-state", "k"),
-        ("k", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
-        ("k", "e", "l", "s", "s-00012", "n", "e-l-s-state", "s-00012:n:k"),
-        ("k", "e", "l", None, "s-00012", "n", "e-l-state", "s-00012:n:k"),
-        ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", "s-0001:k")])
+    "key,environment,layer,stage,shard_id,namespace,table,consistent,nkey", [
+        ("k", "e", "l", "s", None, None, "e-l-s-state", False, "k"),
+        ("k", "e", "l", "s", None, "n", "e-l-s-state", False, "n:k"),
+        ("k", "e", "l", "s", "s-012", "n", "e-l-s-state", True, "s-012:n:k"),
+        ("k", "e", "l", None, "s-012", "n", "e-l-state", True, "s-012:n:k"),
+        ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", None, "s-0001:k")])
 def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
-                   stage, shard_id, namespace, table, nkey):
+                   stage, shard_id, namespace, table, consistent, nkey):
     """Gets a state value from DynamoDB."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
     lambdautils.utils.get_state(key, environment=environment, layer=layer,
                                 stage=stage, shard_id=shard_id,
-                                namespace=namespace)
+                                namespace=namespace,
+                                consistent=consistent)
     boto3_resource("dynamodb").Table.assert_called_with(table)
+    if consistent is None:
+        # The default setting: use consistent reads
+        consistent = True
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": nkey})
+        Key={"id": nkey}, ConsistentRead=consistent)
 
 
 def test_get_state_caller_scope(boto3_resource, monkeypatch):
@@ -96,7 +100,7 @@ def test_get_state_caller_scope(boto3_resource, monkeypatch):
     boto3_resource("dynamodb").Table.assert_called_with(
         "dummyenv-dummylayer-dummystage-state")
     boto3_resource("dynamodb").Table().get_item.assert_called_with(
-        Key={"id": "sample_state_key"})
+        Key={"id": "sample_state_key"}, ConsistentRead=True)
 
 
 def test_set_state_no_state_table(boto3_resource, monkeypatch):
