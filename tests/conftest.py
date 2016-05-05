@@ -37,6 +37,10 @@ def kinesis_event(kinesis_payloads):
                 "eventID": "shardId-0000000:{}".format(random.randint(0, 1e9)),
                 "kinesis": {
                     "data": payload,
+                    "approximateArrivalTimestamp": 1462460164.694,
+                    "kinesisSchemaVersion": "1.0",
+                    "partitionKey": "2065967209.1462460056",
+                    "sequenceNumber": "4956124400661703850297034189702"
                     },
                 } for payload in kinesis_payloads
             ]

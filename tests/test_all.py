@@ -205,13 +205,19 @@ def test_send_to_delivery_stream(search_events, boto3_client, monkeypatch):
     boto3_client("firehose").put_record_batch.call_count == 1
 
 
-def test_unpack_kinesis_event(kinesis_event):
+@pytest.mark.parametrize("deserializer, embed_ts", [
+    [json.loads, False],
+    [json.loads, "kinesis_timestamp"],
+    [None, False]])
+def test_unpack_kinesis_event(kinesis_event, deserializer, embed_ts):
     """Extracts json-serialized events from a Kinesis events."""
     events, shard_id = lambdautils.utils.unpack_kinesis_event(
-        kinesis_event, deserializer=json.loads)
+        kinesis_event, deserializer=deserializer, embed_timestamp=embed_ts)
     # There should be one event per kinesis record
     assert len(events) == len(kinesis_event["Records"])
     assert shard_id == kinesis_event["Records"][0]["eventID"].split(":")[0]
+    if embed_ts:
+        assert all(embed_ts in ev for ev in events)
 
 
 def test_send_cf_response(cf_kinesis_event, cf_context, monkeypatch):
@@ -243,3 +249,15 @@ def test_in_aws_lambda(monkeypatch):
     monkeypatch.setenv("AWS_SESSION_TOKEN", "token")
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "token")
     assert lambdautils.utils.in_aws_lambda()
+
+
+@pytest.mark.parametrize("exception", [
+    lambdautils.utils.CriticalError,
+    lambdautils.utils.StateTableError,
+    lambdautils.utils.ErrorStreamError,
+    lambdautils.utils.RequiresStreamNameError,
+    lambdautils.utils.BadKinesisEventError])
+def test_exceptions(exception):
+    """Tests the exceptions defined by lambdautils."""
+    with pytest.raises(exception):
+        raise exception("Nasty error")

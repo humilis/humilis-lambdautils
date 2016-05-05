@@ -409,7 +409,8 @@ def context_dict(context):
     return d
 
 
-def unpack_kinesis_event(kinesis_event, deserializer=None):
+def unpack_kinesis_event(kinesis_event, deserializer=None,
+                         embed_timestamp=False):
     """Extracts events (a list of dicts) from a Kinesis event."""
     records = kinesis_event["Records"]
     events = []
@@ -424,6 +425,10 @@ def unpack_kinesis_event(kinesis_event, deserializer=None):
                 logger.error("Error deserializing Kinesis payload: {}".format(
                     payload))
                 raise
+
+        if isinstance(payload, dict) and embed_timestamp:
+            payload["kinesis_timestamp"] = rec["kinesis"].get(
+                "approximateArrivalTimestamp")
         events.append(payload)
 
     if len(shard_ids) > 1:
