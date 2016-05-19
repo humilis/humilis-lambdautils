@@ -420,7 +420,7 @@ def unpack_kinesis_event(kinesis_event, deserializer=None,
         shard_ids.add(rec["eventID"].split(":")[0])
         if deserializer:
             try:
-                payload = json.loads(payload)
+                payload = deserializer(payload)
             except ValueError:
                 logger.error("Error deserializing Kinesis payload: {}".format(
                     payload))
