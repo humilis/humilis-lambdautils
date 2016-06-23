@@ -316,8 +316,14 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                                "no error streams were provided")
                         logger.error(msg)
                         raise ErrorStreamError(msg)
-                    payloads, shard_id = unpack_kinesis_event(
-                        event, deserializer=None)
+                    try:
+                        # Try unpacking as if it were a Kinesis event
+                        payloads, shard_id = unpack_kinesis_event(
+                            event, deserializer=None)
+                    except KeyError:
+                        # If not a Kinesis event, just unpack the records
+                        payloads = event["Records"]
+                        shard_id = None
 
                     # Add info about the error so that we are able to
                     # repush the events to the right place after fixing

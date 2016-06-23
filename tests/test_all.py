@@ -117,21 +117,26 @@ def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
 
 
 @pytest.mark.parametrize(
-    "kstream, fstream, mapper, filter, rcalls, kcalls, fcalls", [
-        ("a", "b", None, None, 1, 1, 1),
-        (None, "b", None, None, 1, 0, 1),
-        (None, None, None, None, 2, 0, 0),
-        (None, None, lambda x, sa: x, lambda x, sa: True, 2, 0, 0),
-        ("a", "b", None, lambda x, sa: True, 1, 1, 1),
-        ("a", "b", None, lambda x, sa: False, 1, 0, 0),
-        ("a", "b", lambda x, sa: x, lambda x, sa: False, 1, 0, 0),
-        ("a", "b", lambda x, sa: x, lambda x, sa: True, 1, 1, 1),
-        ("a", None, None, None, 1, 1, 0)])
+    "kstream, fstream, mapper, filter, rcalls, kcalls, fcalls, ev", [
+        ("a", "b", None, None, 1, 1, 1, {"Records": [{}]}),
+        (None, "b", None, None, 1, 0, 1, {"Records": [{}]}),
+        (None, None, None, None, 2, 0, 0, None),
+        (None, None, lambda x, sa: x, lambda x, sa: True, 2, 0, 0, None),
+        ("a", "b", None, lambda x, sa: True, 1, 1, 1, None),
+        ("a", "b", None, lambda x, sa: False, 1, 0, 0, None),
+        ("a", "b", lambda x, sa: x, lambda x, sa: False, 1, 0, 0, None),
+        ("a", "b", lambda x, sa: x, lambda x, sa: True, 1, 1, 1, None),
+        ("a", None, None, None, 1, 1, 0, None)])
 def test_sentry_monitor_exception_with_error_stream(
-        kstream, fstream, mapper, filter, rcalls, kcalls, fcalls,
+        kstream, fstream, mapper, filter, rcalls, kcalls, fcalls, ev,
         boto3_client, raven_client, context, kinesis_event, monkeypatch):
     """Tests the sentry_monitor decorator when throwing an exception and
     lacking an error stream where to dump the errors."""
+
+    if ev is None:
+        # Default to a Kinesis event
+        ev = kinesis_event
+
     monkeypatch.setattr("boto3.client", boto3_client)
     monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
     monkeypatch.setattr("lambdautils.utils.get_secret",
@@ -150,12 +155,11 @@ def test_sentry_monitor_exception_with_error_stream(
     def lambda_handler(event, context):
         raise KeyError
 
-    # Should not raise and just send the events to the error stream
     if not kstream and not fstream:
         with pytest.raises(lambdautils.utils.ErrorStreamError):
-            lambda_handler(kinesis_event, context)
+            lambda_handler(ev, context)
     else:
-        lambda_handler(kinesis_event, context)
+        lambda_handler(ev, context)
 
     # Should have captured only 1 error:
     # * The original KeyError
