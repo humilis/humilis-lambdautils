@@ -306,6 +306,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                     except:
                         logger.error("Raven error capturing exception")
                         logger.error(traceback.print_exc())
+                        raise
 
                 try:
                     # Send the failed payloads to the errored events to the
@@ -315,7 +316,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                         msg = ("Error sending errors to Error stream: "
                                "no error streams were provided")
                         logger.error(msg)
-                        raise ErrorStreamError(msg)
+                        raise
                     try:
                         # Try unpacking as if it were a Kinesis event
                         payloads, shard_id = unpack_kinesis_event(

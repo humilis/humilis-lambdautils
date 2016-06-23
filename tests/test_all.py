@@ -156,7 +156,7 @@ def test_sentry_monitor_exception_with_error_stream(
         raise KeyError
 
     if not kstream and not fstream:
-        with pytest.raises(lambdautils.utils.ErrorStreamError):
+        with pytest.raises(KeyError):
             lambda_handler(ev, context)
     else:
         lambda_handler(ev, context)
