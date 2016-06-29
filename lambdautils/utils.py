@@ -92,6 +92,8 @@ def get_secret(key, environment=None, stage=None, namespace=None):
 
     client = boto3.client('dynamodb')
     try:
+        logger.info("Retriving key '{}' from table '{}'".format(
+            key, table_name))
         encrypted = client.get_item(
             TableName=table_name,
             Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
