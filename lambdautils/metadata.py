@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """Project metadata."""
 
 package = "lambdautils"
 project = "lambdautils"
-version = '0.5.2'
+version = '0.5.3'
 description = "Simple utilities for AWS Lambda functions"
 authors = ["Innovative Travel Ltd"]
 authors_string = ', '.join(authors)

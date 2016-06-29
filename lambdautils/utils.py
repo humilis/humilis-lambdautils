@@ -1,7 +1,8 @@
-# -*- coding: utf-8 -*-
 """Utilities for Lambda functions deployed using humilis."""
 
 import base64
+from datetime import datetime
+from dateutil import tz
 import json
 import logging
 import os
@@ -435,8 +436,18 @@ def unpack_kinesis_event(kinesis_event, deserializer=None,
                 raise
 
         if isinstance(payload, dict) and embed_timestamp:
-            payload[embed_timestamp] = rec["kinesis"].get(
-                "approximateArrivalTimestamp")
+            ts = rec["kinesis"].get("approximateArrivalTimestamp")
+            ts = datetime.fromtimestamp(ts, tz=tz.tzutc())
+            ts_str = ("{year:04d}-{month:02d}-{day:02d} "
+                      "{hour:02d}:{minute:02d}:{second:02d}").format(
+                year=ts.year,
+                month=ts.month,
+                day=ts.day,
+                hour=ts.hour,
+                minute=ts.minute,
+                second=ts.second)
+
+            payload[embed_timestamp] = ts_str
         events.append(payload)
 
     if len(shard_ids) > 1:
