@@ -435,7 +435,7 @@ def unpack_kinesis_event(kinesis_event, deserializer=None,
                 raise
 
         if isinstance(payload, dict) and embed_timestamp:
-            payload["kinesis_timestamp"] = rec["kinesis"].get(
+            payload[embed_timestamp] = rec["kinesis"].get(
                 "approximateArrivalTimestamp")
         events.append(payload)
 
