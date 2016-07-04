@@ -439,15 +439,18 @@ def unpack_kinesis_event(kinesis_event, deserializer=None,
 
         if isinstance(payload, dict) and embed_timestamp:
             ts = rec["kinesis"].get("approximateArrivalTimestamp")
-            ts = datetime.fromtimestamp(ts, tz=tz.tzutc())
-            ts_str = ("{year:04d}-{month:02d}-{day:02d} "
-                      "{hour:02d}:{minute:02d}:{second:02d}").format(
-                year=ts.year,
-                month=ts.month,
-                day=ts.day,
-                hour=ts.hour,
-                minute=ts.minute,
-                second=ts.second)
+            if ts:
+                ts = datetime.fromtimestamp(ts, tz=tz.tzutc())
+                ts_str = ("{year:04d}-{month:02d}-{day:02d} "
+                          "{hour:02d}:{minute:02d}:{second:02d}").format(
+                    year=ts.year,
+                    month=ts.month,
+                    day=ts.day,
+                    hour=ts.hour,
+                    minute=ts.minute,
+                    second=ts.second)
+            else:
+                ts_str = ""
 
             payload[embed_timestamp] = ts_str
         events.append(payload)
