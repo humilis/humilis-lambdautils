@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 import codecs
 
-from . import __version__, __author__
+from lambdautils import __version__, __author__
 
 DESCRIPTION = "Utilities for AWS Lambda functions"""
 dirname = os.path.dirname(__file__)
