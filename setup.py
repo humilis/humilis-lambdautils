@@ -1,32 +1,35 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""Setuptools entry point."""
 
-from setuptools import setup, find_packages
-import lambdautils.metadata as metadata
 import os
+from setuptools import setup, find_packages
+
+import codecs
+
+from .lambdautils import __version__, __author__
+
+DESCRIPTION = "Utilities for AWS Lambda functions"""
+dirname = os.path.dirname(__file__)
 
 try:
     import pypandoc
     long_description = pypandoc.convert('README.md', 'rst')
 except(IOError, ImportError, RuntimeError):
     if os.path.isfile("README.md"):
-        long_description = open("README.md").read()
+        long_description = codecs.open(os.path.join(dirname, "README.md"),
+                                       encoding="utf-8").read()
     else:
-        long_description = metadata.description
+        long_description = DESCRIPTION
 
 setup(
-    name=metadata.project,
-    version=metadata.version,
-    author=metadata.authors[0],
-    author_email=metadata.emails[0],
-    url=metadata.url,
-    license=metadata.license,
-    description=metadata.description,
+    name="lambdautils",
+    version=__version__,
+    author=__author__,
+    author_email="german@findhotel.net",
+    url="https://github.com/humilis/humilis-lambdautils",
+    license="MIT",
+    description=DESCRIPTION,
     long_description=long_description,
-    packages=find_packages(),
-    # We do not include boto3 as an install requirement because the version of
-    # boto3 shipped with the Lambda environment is fine. We specify the boto3
-    # is required in the test and dev requirements files.
+    packages=find_packages(include=["lambdautils"]),
     install_requires=["raven"],
     classifiers=[
         "Programming Language :: Python :: 2.7"],
