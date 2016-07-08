@@ -202,7 +202,16 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
     if shard_id:
         key = "{}:{}".format(shard_id, key)
 
-    resp = table.put_item(Item={"id": key, "value": value})
+    try:
+        resp = table.put_item(Item={"id": key, "value": value})
+    except ClientError as err:
+        logger.error("Client error when trying to put items in "
+                     "DynamoDB. Did you exceed the capacity?")
+        # This is a critical error because it usually has a very easy fix
+        # so it's typically better to stop the stream and let the operator
+        # fix the problem.
+        raise CriticalError(err)
+
     logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp
 
