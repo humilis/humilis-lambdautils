@@ -13,6 +13,7 @@ import uuid
 import boto3
 from botocore.exceptions import ClientError
 import raven
+from retrying import retry
 
 
 logger = logging.getLogger()
@@ -77,6 +78,16 @@ def _state_table_name(environment=None, layer=None, stage=None):
             return "{environment}-{layer}-state".format(**locals())
 
 
+def _is_throughput_exception(err):
+    """Return true for botocore exceptions due to exceeded througput."""
+    error_code = getattr(err, "response", {}).get("Error", {}).get("Code")
+    return error_code == "ProvisionedThroughputExceededException"
+
+
+@retry(retry_on_exception=_is_throughput_exception,
+       wait_exponential_multiplier=500,
+       wait_exponential_max=5000,
+       stop_max_delay=10000)
 def get_secret(key, environment=None, stage=None, namespace=None):
     """Retrieves a secret from the secrets vault."""
     # Get the encrypted secret from DynamoDB
@@ -91,16 +102,11 @@ def get_secret(key, environment=None, stage=None, namespace=None):
         return
 
     client = boto3.client('dynamodb')
-    try:
-        logger.info("Retriving key '{}' from table '{}'".format(
-            key, table_name))
-        encrypted = client.get_item(
-            TableName=table_name,
-            Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
-    except ClientError:
-        logger.info("DynamoDB error when retrieving secret '{}'".format(key))
-        traceback.print_exc()
-        return
+    logger.info("Retriving key '{}' from table '{}'".format(
+        key, table_name))
+    encrypted = client.get_item(
+        TableName=table_name,
+        Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
 
     if encrypted is None:
         return
@@ -123,6 +129,10 @@ def get_secret(key, environment=None, stage=None, namespace=None):
     return value
 
 
+@retry(retry_on_exception=_is_throughput_exception,
+       wait_exponential_multiplier=500,
+       wait_exponential_max=5000,
+       stop_max_delay=10000)
 def get_state(key, namespace=None, table_name=None, environment=None,
               layer=None, stage=None, shard_id=None,
               consistent=None, deserializer=json.loads):
@@ -141,21 +151,15 @@ def get_state(key, namespace=None, table_name=None, environment=None,
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
     logger.info("Getting key '{}' from table '{}'".format(key, table_name))
-    try:
-        if namespace:
-            key = "{}:{}".format(namespace, key)
+    if namespace:
+        key = "{}:{}".format(namespace, key)
 
-        if shard_id:
-            key = "{}:{}".format(shard_id, key)
+    if shard_id:
+        key = "{}:{}".format(shard_id, key)
 
-        value = table.get_item(
-            Key={"id": key}, ConsistentRead=consistent).get(
-                "Item", {}).get("value")
-    except ClientError:
-        logger.warning("DynamoDB error when retrieving key '{}' from table "
-                       "'{}'".format(key, table_name))
-        traceback.print_exc()
-        return
+    value = table.get_item(
+        Key={"id": key}, ConsistentRead=consistent).get(
+            "Item", {}).get("value")
 
     try:
         if deserializer:
@@ -167,6 +171,10 @@ def get_state(key, namespace=None, table_name=None, environment=None,
     return value
 
 
+@retry(retry_on_exception=_is_throughput_exception,
+       wait_exponential_multiplier=500,
+       wait_exponential_max=5000,
+       stop_max_delay=10000)
 def set_state(key, value, table_name=None, environment=None, layer=None,
               stage=None, shard_id=None, namespace=None,
               serializer=json.dumps):
@@ -202,15 +210,7 @@ def set_state(key, value, table_name=None, environment=None, layer=None,
     if shard_id:
         key = "{}:{}".format(shard_id, key)
 
-    try:
-        resp = table.put_item(Item={"id": key, "value": value})
-    except ClientError as err:
-        logger.error("Client error when trying to put items in "
-                     "DynamoDB. Did you exceed the capacity?")
-        # This is a critical error because it usually has a very easy fix
-        # so it's typically better to stop the stream and let the operator
-        # fix the problem.
-        raise CriticalError(err)
+    resp = table.put_item(Item={"id": key, "value": value})
 
     logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp

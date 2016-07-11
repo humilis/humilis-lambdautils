@@ -30,7 +30,9 @@ setup(
     description=DESCRIPTION,
     long_description=long_description,
     packages=find_packages(include=["lambdautils"]),
-    install_requires=["raven"],
+    install_requires=[
+        "raven",
+        "retrying"],
     classifiers=[
         "Programming Language :: Python :: 2.7"],
     zip_safe=False
