@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import socket
 import traceback
 
 import raven
@@ -15,6 +16,11 @@ from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+GRAPHITE_HOST = "statsd.hostedgraphite.com"
+GRAPHITE_PORT = 8125
 
 
 class CriticalError(Exception):
@@ -46,7 +52,8 @@ def _sentry_context_dict(context):
 
 
 def sentry_monitor(environment=None, stage=None, layer=None,
-                   error_stream=None, sentry_dsn_key="sentry.dsn"):
+                   error_stream=None, sentry_key="sentry.dsn"):
+    """Monitor a function with Sentry."""
     if not error_stream:
         error_stream = {}
     config = {
@@ -65,7 +72,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
         def wrapper(event, context):
             logger.info("Retrieving Sentry DSN for environment '{}' and "
                         "stage '{}'".format(environment, stage))
-            dsn = get_secret(sentry_dsn_key,
+            dsn = get_secret(sentry_key,
                              environment=environment,
                              stage=stage)
 
@@ -179,4 +186,25 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                 # pipeline.
                 pass
         return wrapper
+    return decorator
+
+
+def graphite_monitor(metric, environment=None, stage=None,
+                     graphite_key="graphite.api_key",
+                     counter=lambda ret: int(bool(ret))):
+    """Monitor a callable with Graphite."""
+
+    if not getattr(graphite_monitor, "api_key", None):
+        graphite_monitor.api_key = get_secret(
+            graphite_key, environment=environment, stage=stage)
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            val = counter(func(*args, **kwargs))
+            sock.sendto("{api_key}.{metric} {val}\n".format(
+                api_key=graphite_monitor.api_key, metric=metric, val=str(val)),
+                (GRAPHITE_HOST, GRAPHITE_PORT))
+
+        return wrapper
+
     return decorator

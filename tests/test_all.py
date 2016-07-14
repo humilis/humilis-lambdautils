@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Basic unit tests."""
+"""Unit tests."""
 
 import inspect
 import json
@@ -15,6 +14,7 @@ lambda_dir = os.path.join(
 sys.path.append(lambda_dir)
 
 import lambdautils.utils
+import lambdautils.monitor
 
 
 @pytest.mark.parametrize(
@@ -89,6 +89,23 @@ def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
     boto3_resource("dynamodb").Table.assert_called_with(table)
     boto3_resource("dynamodb").Table().put_item.assert_called_with(
         Item={"id": nkey, "value": value})
+
+
+def test_graphite_monitor(context, boto3_client, monkeypatch):
+    sock = Mock()
+    sock.sendto = Mock()
+    monkeypatch.setattr("lambdautils.monitor.sock", sock)
+    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_HOST", "H")
+    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_PORT", "P")
+    monkeypatch.setattr("boto3.client", boto3_client)
+
+    @lambdautils.monitor.graphite_monitor(
+        "metric", environment="env", stage="stage")
+    def func():
+        return True
+
+    func()
+    sock.sendto.assert_called_with("dummy.metric 1\n", ("H", "P"))
 
 
 def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
