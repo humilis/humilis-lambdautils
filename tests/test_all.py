@@ -104,7 +104,8 @@ def test_graphite_monitor(context, boto3_client, monkeypatch):
     def func():
         return True
 
-    func()
+    val = func()
+    assert val is True
     sock.sendto.assert_called_with("dummy.metric 1\n", ("H", "P"))
 
 
