@@ -212,10 +212,13 @@ def graphite_monitor(metric, environment=None, stage=None,
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            val = counter(func(*args, **kwargs))
-            sock.sendto("{api_key}.{metric} {val}\n".format(
-                api_key=graphite_monitor.api_key, metric=metric, val=str(val)),
-                (GRAPHITE_HOST, GRAPHITE_PORT))
+            val = func(*args, **kwargs)
+            if graphite_monitor.api_key:
+                sock.sendto("{api_key}.{metric} {val}\n".format(
+                    api_key=graphite_monitor.api_key, metric=metric,
+                    val=str(counter(val))),
+                    (GRAPHITE_HOST, GRAPHITE_PORT))
+            return val
 
         return wrapper
 
