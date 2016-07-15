@@ -195,7 +195,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
     return decorator
 
 
-def graphite_monitor(metric, environment=None, stage=None,
+def graphite_monitor(metric, environment=None, stage=None, layer=None,
                      graphite_key="graphite.api_key",
                      counter=lambda ret: int(bool(ret))):
     """Monitor a callable with Graphite."""
@@ -206,6 +206,9 @@ def graphite_monitor(metric, environment=None, stage=None,
     if stage is None:
         stage = os.environ.get("HUMILIS_STAGE")
 
+    if layer is None:
+        layer = os.environ.get("HUMILIS_LAYER")
+
     if not getattr(graphite_monitor, "api_key", None):
         graphite_monitor.api_key = get_secret(
             graphite_key, environment=environment, stage=stage)
@@ -214,7 +217,8 @@ def graphite_monitor(metric, environment=None, stage=None,
         def wrapper(*args, **kwargs):
             val = func(*args, **kwargs)
             if graphite_monitor.api_key:
-                sock.sendto("{api_key}.{metric} {val}\n".format(
+                sock.sendto("{api_key}.{prefix}.{metric} {val}\n".format(
+                    prefix="{}.{}.{}".format(environment, layer, stage),
                     api_key=graphite_monitor.api_key, metric=metric,
                     val=str(counter(val))),
                     (GRAPHITE_HOST, GRAPHITE_PORT))

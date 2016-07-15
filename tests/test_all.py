@@ -100,13 +100,35 @@ def test_graphite_monitor(context, boto3_client, monkeypatch):
     monkeypatch.setattr("boto3.client", boto3_client)
 
     @lambdautils.monitor.graphite_monitor(
-        "metric", environment="env", stage="stage")
+        "metric", environment="env", stage="stage", layer="layer")
     def func():
         return True
 
     val = func()
     assert val is True
-    sock.sendto.assert_called_with("dummy.metric 1\n", ("H", "P"))
+    sock.sendto.assert_called_with("dummy.env.layer.stage.metric 1\n",
+                                   ("H", "P"))
+
+
+def test_graphite_monitor_envars(context, boto3_client, monkeypatch):
+    sock = Mock()
+    sock.sendto = Mock()
+    monkeypatch.setattr("lambdautils.monitor.sock", sock)
+    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_HOST", "H")
+    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_PORT", "P")
+    monkeypatch.setattr("boto3.client", boto3_client)
+    monkeypatch.setenv("HUMILIS_ENVIRONMENT", "env")
+    monkeypatch.setenv("HUMILIS_LAYER", "layer")
+    monkeypatch.setenv("HUMILIS_STAGE", "stage")
+
+    @lambdautils.monitor.graphite_monitor("metric")
+    def func():
+        return True
+
+    val = func()
+    assert val is True
+    sock.sendto.assert_called_with("dummy.env.layer.stage.metric 1\n",
+                                   ("H", "P"))
 
 
 def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
