@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-"""Basic unit tests."""
+"""Unit tests."""
 
 import inspect
 import json
@@ -15,6 +14,7 @@ lambda_dir = os.path.join(
 sys.path.append(lambda_dir)
 
 import lambdautils.utils
+import lambdautils.monitor
 
 
 @pytest.mark.parametrize(
@@ -48,7 +48,7 @@ def test_get_secret(key, environment, stage, namespace, table, nkey,
         ("k", "e", "l", "s", None, "n", "e-l-s-state", False, "n:k"),
         ("k", "e", "l", "s", "s-012", "n", "e-l-s-state", True, "s-012:n:k"),
         ("k", "e", "l", None, "s-012", "n", "e-l-state", True, "s-012:n:k"),
-        ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", None, "s-0001:k")])
+        ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", True, "s-0001:k")])
 def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
                    stage, shard_id, namespace, table, consistent, nkey):
     """Gets a state value from DynamoDB."""
@@ -89,6 +89,23 @@ def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
     boto3_resource("dynamodb").Table.assert_called_with(table)
     boto3_resource("dynamodb").Table().put_item.assert_called_with(
         Item={"id": nkey, "value": value})
+
+
+def test_graphite_monitor(context, boto3_client, monkeypatch):
+    sock = Mock()
+    sock.sendto = Mock()
+    monkeypatch.setattr("lambdautils.monitor.sock", sock)
+    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_HOST", "H")
+    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_PORT", "P")
+    monkeypatch.setattr("boto3.client", boto3_client)
+
+    @lambdautils.monitor.graphite_monitor(
+        "metric", environment="env", stage="stage")
+    def func():
+        return True
+
+    func()
+    sock.sendto.assert_called_with("dummy.metric 1\n", ("H", "P"))
 
 
 def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
@@ -188,13 +205,6 @@ def test_sentry_monitor_critical_exception(context, kinesis_event,
         lambda_handler(kinesis_event, context)
 
 
-def test_context_dict(context):
-    """Tests utility context_dict."""
-    d = lambdautils.utils.context_dict(context)
-    assert len(d) == 8 + len(os.environ)
-    assert d["function_name"] == context.function_name
-
-
 def test_send_to_kinesis_stream(search_events, boto3_client, monkeypatch):
     """Tests sending events to a Kinesis stream."""
     monkeypatch.setattr("boto3.client", boto3_client)
@@ -258,8 +268,6 @@ def test_in_aws_lambda(monkeypatch):
 @pytest.mark.parametrize("exception", [
     lambdautils.utils.CriticalError,
     lambdautils.utils.StateTableError,
-    lambdautils.utils.ErrorStreamError,
-    lambdautils.utils.RequiresStreamNameError,
     lambdautils.utils.BadKinesisEventError])
 def test_exceptions(exception):
     """Tests the exceptions defined by lambdautils."""
