@@ -54,6 +54,12 @@ def _sentry_context_dict(context):
 def sentry_monitor(environment=None, stage=None, layer=None,
                    error_stream=None, sentry_key="sentry.dsn"):
     """Monitor a function with Sentry."""
+    if environment is None:
+        environment = os.environ.get("HUMILIS_ENVIRONMENT")
+
+    if stage is None:
+        stage = os.environ.get("HUMILIS_STAGE")
+
     if not error_stream:
         error_stream = {}
     config = {
@@ -194,16 +200,25 @@ def graphite_monitor(metric, environment=None, stage=None,
                      counter=lambda ret: int(bool(ret))):
     """Monitor a callable with Graphite."""
 
+    if environment is None:
+        environment = os.environ.get("HUMILIS_ENVIRONMENT")
+
+    if stage is None:
+        stage = os.environ.get("HUMILIS_STAGE")
+
     if not getattr(graphite_monitor, "api_key", None):
         graphite_monitor.api_key = get_secret(
             graphite_key, environment=environment, stage=stage)
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            val = counter(func(*args, **kwargs))
-            sock.sendto("{api_key}.{metric} {val}\n".format(
-                api_key=graphite_monitor.api_key, metric=metric, val=str(val)),
-                (GRAPHITE_HOST, GRAPHITE_PORT))
+            val = func(*args, **kwargs)
+            if graphite_monitor.api_key:
+                sock.sendto("{api_key}.{metric} {val}\n".format(
+                    api_key=graphite_monitor.api_key, metric=metric,
+                    val=str(counter(val))),
+                    (GRAPHITE_HOST, GRAPHITE_PORT))
+            return val
 
         return wrapper
 
