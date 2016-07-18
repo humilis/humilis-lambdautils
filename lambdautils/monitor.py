@@ -212,16 +212,20 @@ def graphite_monitor(metric, environment=None, stage=None, layer=None,
     if not getattr(graphite_monitor, "api_key", None):
         graphite_monitor.api_key = get_secret(
             graphite_key, environment=environment, stage=stage)
+        if not graphite_monitor.api_key:
+            logger.error(
+                "Unable to retrieve secret '{}' for environment {}/{}".format(
+                    graphite_key, environment, stage))
 
     def decorator(func):
         def wrapper(*args, **kwargs):
             val = func(*args, **kwargs)
             if graphite_monitor.api_key:
-                sock.sendto("{api_key}.{prefix}.{metric} {val}\n".format(
+                data = "{api_key}.{prefix}.{metric}:{val}|c".format(
                     prefix="{}.{}.{}".format(environment, layer, stage),
                     api_key=graphite_monitor.api_key, metric=metric,
-                    val=str(counter(val))),
-                    (GRAPHITE_HOST, GRAPHITE_PORT))
+                    val=str(counter(val)))
+                sock.sendto(data, (GRAPHITE_HOST, GRAPHITE_PORT))
             return val
 
         return wrapper
