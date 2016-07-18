@@ -106,7 +106,7 @@ def test_graphite_monitor(context, boto3_client, monkeypatch):
 
     val = func()
     assert val is True
-    sock.sendto.assert_called_with("dummy.env.layer.stage.metric 1\n",
+    sock.sendto.assert_called_with("dummy.env.layer.stage.metric:1|c",
                                    ("H", "P"))
 
 
