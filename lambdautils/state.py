@@ -153,6 +153,9 @@ def get_state(key, namespace=None, table_name=None, environment=None,
 
     value = get_item()
 
+    if not value:
+        return
+
     if deserializer:
         value = deserializer(value)
 
