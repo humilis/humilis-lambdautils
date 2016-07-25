@@ -88,7 +88,7 @@ def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
                                 namespace=namespace)
     boto3_resource("dynamodb").Table.assert_called_with(table)
     boto3_resource("dynamodb").Table().put_item.assert_called_with(
-        Item={"id": nkey, "value": value})
+        Item={"id": nkey, "value": json.dumps(value)})
 
 
 def test_graphite_monitor(context, boto3_client, monkeypatch):

@@ -182,16 +182,14 @@ def set_state(key, value, namespace=None, table_name=None, environment=None,
     table = dynamodb.Table(table_name)
     logger.info("Putting {} -> {} in DynamoDB table {}".format(key, value,
                                                                table_name))
-    if not isinstance(value, str):
-        # Serialize using json
+    if serializer:
         try:
             value = serializer(value)
         except TypeError:
-            logger.warning("Unable to json-serialize state '{}".format(
-                key))
-            # Try to store the value as it is
-    elif serializer:
-        logger.warning("Value is already a string: not serializing")
+            logger.error(
+                "Value for state key '{}' is not json-serializable".format(
+                    key))
+            raise
 
     if namespace:
         key = "{}:{}".format(namespace, key)
