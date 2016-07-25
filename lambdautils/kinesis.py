@@ -9,7 +9,7 @@ import uuid
 
 import boto3
 
-logger = logging.getLogger("lambdautils.kinesis")
+logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 

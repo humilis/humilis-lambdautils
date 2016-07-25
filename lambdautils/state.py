@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from retrying import retry
 
 
-logger = logging.getLogger("lambdautils.state")
+logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
@@ -143,9 +143,9 @@ def get_state(key, namespace=None, table_name=None, environment=None,
         key = "{}:{}".format(shard_id, key)
 
     @retry(retry_on_exception=_is_throughput_exception,
-           wait_exponential_multiplier=500,
-           wait_exponential_max=5000,
-           stop_max_delay=10000)
+           wait_exponential_multiplier=wait_exponential_multiplier,
+           wait_exponential_max=wait_exponential_max,
+           stop_max_delay=stop_max_delay)
     def get_item():
         return table.get_item(
             Key={"id": key}, ConsistentRead=consistent).get(
