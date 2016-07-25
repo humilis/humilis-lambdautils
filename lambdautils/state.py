@@ -157,7 +157,12 @@ def get_state(key, namespace=None, table_name=None, environment=None,
         return
 
     if deserializer:
-        value = deserializer(value)
+        try:
+            value = deserializer(value)
+        except ValueError:
+            # For backwards compatibility: plain strings are allowed
+            logger.error("Unable to json-deserialize value '{}'".format(value))
+            return value
 
     return value
 
