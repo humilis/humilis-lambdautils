@@ -153,12 +153,8 @@ def get_state(key, namespace=None, table_name=None, environment=None,
 
     value = get_item()
 
-    try:
-        if deserializer:
-            value = deserializer(value)
-    except (TypeError, ValueError):
-        # It's ok, the client should know how to deal with the value
-        pass
+    if deserializer:
+        value = deserializer(value)
 
     return value
 
