@@ -9,6 +9,8 @@ import boto3
 from botocore.exceptions import ClientError
 from retrying import retry
 
+from .exception import CriticalError
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -57,10 +59,16 @@ def _state_table_name(environment=None, layer=None, stage=None):
             return "{environment}-{layer}-state".format(**locals())
 
 
-def _is_throughput_exception(err):
+def _is_dynamodb_critical_exception(err):
     """Return true for botocore exceptions due to exceeded througput."""
     error_code = getattr(err, "response", {}).get("Error", {}).get("Code")
-    return error_code == "ProvisionedThroughputExceededException"
+    return error_code in {"ProvisionedThroughputExceededException",
+                          "UnrecognizedClientException"}
+
+
+def _is_critical_exception(err):
+    """True for CriticalException errors."""
+    return isinstance(err, CriticalError)
 
 
 def get_secret(key, environment=None, stage=None, namespace=None,
@@ -82,14 +90,21 @@ def get_secret(key, environment=None, stage=None, namespace=None,
     logger.info("Retriving key '{}' from table '{}'".format(
         key, table_name))
 
-    @retry(retry_on_exception=_is_throughput_exception,
+    @retry(retry_on_exception=_is_critical_exception,
            wait_exponential_multiplier=500,
            wait_exponential_max=5000,
            stop_max_delay=10000)
     def get_item():
-        return client.get_item(
-            TableName=table_name,
-            Key={'id': {'S': key}}).get('Item', {}).get('value', {}).get('B')
+        try:
+            return client.get_item(
+                TableName=table_name,
+                Key={'id': {'S': key}}).get('Item', {}).get(
+                    'value', {}).get('B')
+        except Exception as err:
+            if _is_dynamodb_critical_exception(err):
+                raise CriticalError(err)
+            else:
+                raise
 
     encrypted = get_item()
 
@@ -142,14 +157,20 @@ def get_state(key, namespace=None, table_name=None, environment=None,
     if shard_id:
         key = "{}:{}".format(shard_id, key)
 
-    @retry(retry_on_exception=_is_throughput_exception,
+    @retry(retry_on_exception=_is_critical_exception,
            wait_exponential_multiplier=wait_exponential_multiplier,
            wait_exponential_max=wait_exponential_max,
            stop_max_delay=stop_max_delay)
     def get_item():
-        return table.get_item(
-            Key={"id": key}, ConsistentRead=consistent).get(
-                "Item", {}).get("value")
+        try:
+            return table.get_item(
+                Key={"id": key}, ConsistentRead=consistent).get(
+                    "Item", {}).get("value")
+        except Exception as err:
+            if _is_dynamodb_critical_exception(err):
+                raise CriticalError(err)
+            else:
+                raise
 
     value = get_item()
 
@@ -202,12 +223,18 @@ def set_state(key, value, namespace=None, table_name=None, environment=None,
     if shard_id:
         key = "{}:{}".format(shard_id, key)
 
-    @retry(retry_on_exception=_is_throughput_exception,
+    @retry(retry_on_exception=_is_critical_exception,
            wait_exponential_multiplier=500,
            wait_exponential_max=5000,
            stop_max_delay=10000)
     def put_item():
-        return table.put_item(Item={"id": key, "value": value})
+        try:
+            return table.put_item(Item={"id": key, "value": value})
+        except Exception as err:
+            if _is_dynamodb_critical_exception(err):
+                raise CriticalError(err)
+            else:
+                raise
 
     resp = put_item()
 

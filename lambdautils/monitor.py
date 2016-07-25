@@ -12,6 +12,7 @@ from .state import get_secret
 
 from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
                       send_to_delivery_stream)
+from .exception import CriticalError
 
 
 logger = logging.getLogger()
@@ -21,14 +22,6 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 GRAPHITE_HOST = "statsd.hostedgraphite.com"
 GRAPHITE_PORT = 8125
-
-
-class CriticalError(Exception):
-    def __init__(self, exception):
-        self.__exception = exception
-
-    def __str__(self):
-        return str(self.__exception)
 
 
 def _sentry_context_dict(context):
