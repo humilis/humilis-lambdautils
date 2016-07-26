@@ -91,9 +91,9 @@ def get_secret(key, environment=None, stage=None, namespace=None,
         key, table_name))
 
     @retry(retry_on_exception=_is_critical_exception,
-           wait_exponential_multiplier=500,
-           wait_exponential_max=5000,
-           stop_max_delay=10000)
+           wait_exponential_multiplier=wait_exponential_multiplier,
+           wait_exponential_max=wait_exponential_max,
+           stop_max_delay=stop_max_delay)
     def get_item():
         try:
             return client.get_item(
