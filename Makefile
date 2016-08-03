@@ -13,7 +13,7 @@ develop: .env
 # run test suite
 test: develop
 	rm -rf .tox
-	$(TOX) -e unit
+	$(TOX)
 
 # remove virtualenv and layers dir
 clean:

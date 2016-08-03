@@ -2,7 +2,13 @@
 
 import json
 import os
-import urllib2
+
+try:
+    from urllib2 import build_opener, Request, HTTPHandler, HTTPError
+except ImportError:
+    # We are in Python 3.x
+    from urllib.request import build_opener, Request, HTTPHandler
+    from urllib.error import HTTPError
 
 # interface imports (for backwards compatibility)
 from .monitor import sentry_monitor, CriticalError  # noqa
@@ -36,8 +42,8 @@ def send_cf_response(event, context, response_status, reason=None,
         }
     )
 
-    opener = urllib2.build_opener(urllib2.HTTPHandler)
-    request = urllib2.Request(event["ResponseURL"], data=response_body)
+    opener = build_opener(HTTPHandler)
+    request = Request(event["ResponseURL"], data=response_body)
     request.add_header("Content-Type", "")
     request.add_header("Content-Length", len(response_body))
     request.get_method = lambda: 'PUT'
@@ -46,6 +52,6 @@ def send_cf_response(event, context, response_status, reason=None,
         print("Status code: {}".format(response.getcode()))
         print("Status message: {}".format(response.msg))
         return True
-    except urllib2.HTTPError as exc:
+    except HTTPError as exc:
         print("Failed executing HTTP request: {}".format(exc.code))
         return False

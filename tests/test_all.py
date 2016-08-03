@@ -259,9 +259,9 @@ def test_unpack_kinesis_event(kinesis_event, deserializer, embed_ts):
 
 def test_send_cf_response(cf_kinesis_event, cf_context, monkeypatch):
     """Tests sending a response to Cloudformation."""
-    monkeypatch.setattr("urllib2.build_opener", Mock())
+    monkeypatch.setattr("lambdautils.utils.build_opener", Mock())
     mocked_request = Mock()
-    monkeypatch.setattr("urllib2.Request", mocked_request)
+    monkeypatch.setattr("lambdautils.utils.Request", mocked_request)
     lambdautils.utils.send_cf_response(cf_kinesis_event, cf_context, "SUCCESS",
                                        reason="reason", response_data="data",
                                        physical_resource_id="id")

@@ -25,7 +25,11 @@ def search_events(request):
 @pytest.fixture(scope="function")
 def kinesis_payloads(search_events):
     """A Kinesis payload containing one or more search events."""
-    return [base64.encodestring(json.dumps(ev)) for ev in search_events]
+    try:
+        return [base64.encodestring(json.dumps(ev)) for ev in search_events]
+    except TypeError:
+        return [base64.encodestring(json.dumps(ev).encode())
+                for ev in search_events]
 
 
 @pytest.fixture(scope="function")
