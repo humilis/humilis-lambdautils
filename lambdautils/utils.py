@@ -12,7 +12,8 @@ except ImportError:
 
 # interface imports (for backwards compatibility)
 from .monitor import sentry_monitor, CriticalError  # noqa
-from .state import get_secret, get_state, set_state, StateTableError  # noqa
+from .state import (get_secret, get_state, set_state, delete_state,  # noqa
+                    StateTableError)  # noqa
 from .kinesis import (unpack_kinesis_event, send_to_delivery_stream,  # noqa
                       send_to_kinesis_stream, BadKinesisEventError)  # noqa
 
