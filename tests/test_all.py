@@ -91,6 +91,25 @@ def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
         Item={"id": nkey, "value": json.dumps(value)})
 
 
+@pytest.mark.parametrize(
+    "key,environment,layer,stage,shard_id,namespace,table,nkey", [
+        ("k", "e", "l", "s", None, None, "e-l-s-state", "k"),
+        ("k", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
+        ("k", "e", "l", "s", "s1", "n", "e-l-s-state", "s1:n:k"),
+        ("k", "e", "l", None, "s-00012", "n", "e-l-state", "s-00012:n:k"),
+        ("k", "e", "l", "s", "s2", None, "e-l-s-state", "s2:k")])
+def test_delete_state(boto3_resource, monkeypatch, key, environment,
+                      layer, stage, shard_id, namespace, table, nkey):
+    """Tests setting a state variable."""
+    monkeypatch.setattr("boto3.resource", boto3_resource)
+    lambdautils.utils.delete_state(key, environment=environment,
+                                   layer=layer, stage=stage, shard_id=shard_id,
+                                   namespace=namespace)
+    boto3_resource("dynamodb").Table.assert_called_with(table)
+    boto3_resource("dynamodb").Table().delete_item.assert_called_with(
+        Key={"id": nkey})
+
+
 def test_graphite_monitor(context, boto3_client, monkeypatch):
     sock = Mock()
     sock.sendto = Mock()

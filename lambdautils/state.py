@@ -240,3 +240,48 @@ def set_state(key, value, namespace=None, table_name=None, environment=None,
 
     logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp
+
+
+def delete_state(key, namespace=None, table_name=None, environment=None,
+                 layer=None, stage=None, shard_id=None, consistent=True,
+                 wait_exponential_multiplier=500,
+                 wait_exponential_max=5000, stop_max_delay=10000):
+    """Delete Lambda state value."""
+    if table_name is None:
+        table_name = _state_table_name(environment=environment, layer=layer,
+                                       stage=stage)
+
+    if not table_name:
+        msg = ("Can't produce state table name: unable to set state "
+               "item '{}'".format(key))
+        logger.error(msg)
+        raise StateTableError(msg)
+        return
+
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(table_name)
+    logger.info("Deleting {} in DynamoDB table {}".format(key, table_name))
+
+    if namespace:
+        key = "{}:{}".format(namespace, key)
+
+    if shard_id:
+        key = "{}:{}".format(shard_id, key)
+
+    @retry(retry_on_exception=_is_critical_exception,
+           wait_exponential_multiplier=500,
+           wait_exponential_max=5000,
+           stop_max_delay=10000)
+    def delete_item():
+        try:
+            return table.delete_item(Key={"id": key})
+        except Exception as err:
+            if _is_dynamodb_critical_exception(err):
+                raise CriticalError(err)
+            else:
+                raise
+
+    resp = delete_item()
+
+    logger.info("Response from DynamoDB: '{}'".format(resp))
+    return resp
