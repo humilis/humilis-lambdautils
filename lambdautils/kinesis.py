@@ -9,7 +9,7 @@ import uuid
 
 import boto3
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
