@@ -11,9 +11,8 @@ from retrying import retry
 
 from .exception import CriticalError
 
-
-logger = logging.getLogger(__name__).addHandler(logging.StreamHandler(()))
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class StateTableError(Exception):

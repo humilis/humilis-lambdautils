@@ -15,8 +15,8 @@ from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
 from .exception import CriticalError
 
 
-logger = logging.getLogger(__name__).addHandler(logging.StreamHandler(()))
-logger.setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
