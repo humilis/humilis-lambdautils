@@ -12,7 +12,7 @@ from retrying import retry
 from .exception import CriticalError
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__).addHandler(logging.StreamHandler(()))
 logger.setLevel(logging.INFO)
 
 
