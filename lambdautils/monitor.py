@@ -103,11 +103,10 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                 if dsn is not None:
                     try:
                         logger.error("AWS Lambda handler threw an exception",
-                                     extra={'stack': True})
-                        logger.error(traceback.print_exc())
+                                     exc_info=True)
                     except:
-                        logger.error("Raven error capturing exception")
-                        logger.error(traceback.print_exc())
+                        logger.error("Raven error capturing exception",
+                                     exc_info=True)
                         raise
 
                 try:
