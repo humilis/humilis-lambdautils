@@ -17,6 +17,7 @@ from .exception import CriticalError
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
 logger.addHandler(logging.NullHandler())
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
