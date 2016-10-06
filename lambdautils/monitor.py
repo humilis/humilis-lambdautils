@@ -17,7 +17,7 @@ from .exception import CriticalError
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.WARNING)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -103,8 +103,9 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                 if dsn is not None:
                     try:
                         client.captureException()
-                        logger.error("AWS Lambda handler threw an exception:",
+                        logger.error("AWS Lambda handler threw an exception",
                                      extra={'stack': True})
+                        logger.error(traceback.print_exc())
                     except:
                         logger.error("Raven error capturing exception")
                         logger.error(traceback.print_exc())
