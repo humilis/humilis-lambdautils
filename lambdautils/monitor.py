@@ -102,7 +102,6 @@ def sentry_monitor(environment=None, stage=None, layer=None,
             except:
                 if dsn is not None:
                     try:
-                        client.captureException()
                         logger.error("AWS Lambda handler threw an exception",
                                      extra={'stack': True})
                         logger.error(traceback.print_exc())
