@@ -8,7 +8,6 @@ import traceback
 
 import raven
 from raven.handlers.logging import SentryHandler
-from raven.conf import setup_logging
 
 from .state import get_secret
 
@@ -83,7 +82,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                 try:
                     client = raven.Client(dsn)
                     handler = SentryHandler(client)
-                    setup_logging(handler, exclude=('root'))
+                    logger.addHandler(handler)
                 except:
                     # We don't want to break the application. Add some retry
                     # logic later.
