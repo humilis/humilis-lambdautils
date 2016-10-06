@@ -176,15 +176,15 @@ def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
 
 @pytest.mark.parametrize(
     "kstream, fstream, mapper, filter, rcalls, kcalls, fcalls, ev", [
-        ("a", "b", None, None, 1, 1, 1, {"Records": [{}]}),
-        (None, "b", None, None, 1, 0, 1, {"Records": [{}]}),
-        (None, None, None, None, 2, 0, 0, None),
-        (None, None, lambda x, sa: x, lambda x, sa: True, 2, 0, 0, None),
-        ("a", "b", None, lambda x, sa: True, 1, 1, 1, None),
-        ("a", "b", None, lambda x, sa: False, 1, 0, 0, None),
-        ("a", "b", lambda x, sa: x, lambda x, sa: False, 1, 0, 0, None),
-        ("a", "b", lambda x, sa: x, lambda x, sa: True, 1, 1, 1, None),
-        ("a", None, None, None, 1, 1, 0, None)])
+        ("a", "b", None, None, 0, 1, 1, {"Records": [{}]}),
+        (None, "b", None, None, 0, 0, 1, {"Records": [{}]}),
+        (None, None, None, None, 1, 0, 0, None),
+        (None, None, lambda x, sa: x, lambda x, sa: True, 1, 0, 0, None),
+        ("a", "b", None, lambda x, sa: True, 0, 1, 1, None),
+        ("a", "b", None, lambda x, sa: False, 0, 0, 0, None),
+        ("a", "b", lambda x, sa: x, lambda x, sa: False, 0, 0, 0, None),
+        ("a", "b", lambda x, sa: x, lambda x, sa: True, 0, 1, 1, None),
+        ("a", None, None, None, 0, 1, 0, None)])
 def test_sentry_monitor_exception_with_error_stream(
         kstream, fstream, mapper, filter, rcalls, kcalls, fcalls, ev,
         boto3_client, raven_client, context, kinesis_event, monkeypatch):
