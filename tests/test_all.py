@@ -198,6 +198,8 @@ def test_sentry_monitor_exception_with_error_stream(
 
     monkeypatch.setattr("boto3.client", boto3_client)
     monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
+    monkeypatch.setattr("lambdautils.monitor.setup_logging", Mock())
+    monkeypatch.setattr("lambdautils.monitor.SentryHandler", Mock())
     monkeypatch.setattr("lambdautils.utils.get_secret",
                         Mock(return_value="dummydsn"))
 
