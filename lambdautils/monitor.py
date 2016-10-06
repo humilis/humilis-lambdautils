@@ -147,7 +147,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
 
                         error_payloads.append(payload)
 
-                    logger.error("Error payloads: {}".format(
+                    logger.info("Error payloads: {}".format(
                         json.dumps(error_payloads, indent=4)))
 
                     if not error_payloads:
@@ -178,14 +178,12 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                         try:
                             client.captureException()
                         except:
-                            logger.error("Raven error capturing exception")
-                            logger.error(traceback.print_exc())
+                            logger.error("Raven error capturing exception",
+                                         exc_info=True)
 
-                    msg = "Error delivering errors to Error stream(s)"
-                    logger.error(msg)
                     raise
                 # If we were able to deliver the error events to the error
-                # stream, we silent the exception to prevent blocking the
+                # stream, we ignore the exception to prevent blocking the
                 # pipeline.
                 pass
         return wrapper
