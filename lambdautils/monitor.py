@@ -83,7 +83,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                 try:
                     client = raven.Client(dsn)
                     handler = SentryHandler(client)
-                    setup_logging(handler)
+                    setup_logging(handler, exclude=('root'))
                 except:
                     # We don't want to break the application. Add some retry
                     # logic later.
@@ -104,6 +104,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
                 if dsn is not None:
                     try:
                         client.captureException()
+                        logger.error(traceback.print_exc())
                     except:
                         logger.error("Raven error capturing exception")
                         logger.error(traceback.print_exc())
@@ -147,7 +148,7 @@ def sentry_monitor(environment=None, stage=None, layer=None,
 
                         error_payloads.append(payload)
 
-                    logger.info("Error payloads: {}".format(
+                    logger.error("Error payloads: {}".format(
                         json.dumps(error_payloads, indent=4)))
 
                     if not error_payloads:
