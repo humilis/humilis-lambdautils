@@ -5,6 +5,7 @@ import json
 from mock import Mock
 import os
 import sys
+import uuid
 
 import pytest
 
@@ -41,6 +42,18 @@ def test_get_secret(key, environment, stage, namespace, table, nkey,
     boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
 
 
+def test_get_environment_setting(monkeypatch):
+    """Should be an alias for get_secret."""
+    resp = str(uuid.uuid4())
+    arg = str(uuid.uuid4())
+    kwarg = str(uuid.uuid4())
+    get_secret = Mock(return_value=resp)
+    monkeypatch.setattr("lambdautils.state.get_secret", get_secret)
+    resp2 = lambdautils.state.get_environment_setting(arg, kwarg=kwarg)
+    assert resp2 == resp
+    get_secret.assert_called_with(arg, kwarg=kwarg)
+
+
 @pytest.mark.parametrize(
     "key,environment,layer,stage,shard_id,namespace,table,consistent,nkey", [
         ("k", "e", "l", "s", None, None, "e-l-s-state", False, "k"),
@@ -50,7 +63,7 @@ def test_get_secret(key, environment, stage, namespace, table, nkey,
         ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", True, "s-0001:k")])
 def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
                    stage, shard_id, namespace, table, consistent, nkey):
-    """Gets a state value from DynamoDB."""
+    """Get a state value from DynamoDB."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
     lambdautils.utils.get_state(key, environment=environment, layer=layer,
                                 stage=stage, shard_id=shard_id,
@@ -64,11 +77,17 @@ def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
         Key={"id": nkey}, ConsistentRead=consistent)
 
 
-def test_set_state_no_state_table(boto3_resource, monkeypatch):
-    """Tests setting a state variable without having a state table."""
+def test_no_state_table(boto3_resource, monkeypatch):
+    """Test accessing state variable without having a state table."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
-    with pytest.raises(lambdautils.utils.StateTableError):
+    with pytest.raises(lambdautils.state.StateTableError):
         lambdautils.utils.set_state("sample_state_key", "sample_state_value")
+
+    with pytest.raises(lambdautils.state.StateTableError):
+        lambdautils.utils.delete_state("sample_state_key")
+
+    with pytest.raises(lambdautils.state.StateTableError):
+        lambdautils.utils.get_state("sample_state_key")
 
 
 @pytest.mark.parametrize(

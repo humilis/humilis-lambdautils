@@ -2,8 +2,8 @@
 
 
 class CriticalError(Exception):
-    def __init__(self, exception):
-        self.__exception = exception
+    pass
 
-    def __str__(self):
-        return str(self.__exception)
+
+class StateTableError(Exception):
+    pass

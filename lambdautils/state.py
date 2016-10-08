@@ -9,14 +9,10 @@ import boto3
 from botocore.exceptions import ClientError
 from retrying import retry
 
-from .exception import CriticalError
+from .exception import CriticalError, StateTableError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
-
-
-class StateTableError(Exception):
-    pass
 
 
 def _secrets_table_name(environment=None, stage=None):
@@ -143,8 +139,10 @@ def get_state(key, namespace=None, table_name=None, environment=None,
                                        stage=stage)
 
     if not table_name:
-        logger.warning("Can't produce state table name: unable to retrieve "
-                       "state item '{}'".format(key))
+        msg = ("Can't produce state table name: unable to get state "
+               "item '{}'".format(key))
+        logger.error(msg)
+        raise StateTableError(msg)
         return
 
     dynamodb = boto3.resource("dynamodb")
