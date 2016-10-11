@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.8.6
+-----
+
+- RetryError exception
+
 0.8.5
 -----
 
