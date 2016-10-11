@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.8.5
+-----
+
+- Event annotations
+
 0.7.1
 -----
 

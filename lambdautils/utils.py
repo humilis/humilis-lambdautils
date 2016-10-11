@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 
 try:
     from urllib2 import build_opener, Request, HTTPHandler, HTTPError
@@ -56,3 +57,34 @@ def send_cf_response(event, context, response_status, reason=None,
     except HTTPError as exc:
         print("Failed executing HTTP request: {}".format(exc.code))
         return False
+
+
+def annotate_callable(func):
+    """Func decorator to annotate events with entry and/or exit timestamps."""
+    def wrapper(ev, *args, **kwargs):
+        funcname = ":".join([func.__module__, func.__name__])
+        ann_key = funcname + "|input"
+        ev = annotate_event(ev, ann_key)
+        ev = func(ev, *args, **kwargs)
+        ann_key = funcname + "|output"
+        ev = annotate_event(ev, ann_key)
+        return ev
+
+    return wrapper
+
+
+def annotate_event(ev, key):
+    ann = {}
+    ann["environment"] = os.environ.get("HUMILIS_ENVIRONMENT")
+    ann["stage"] = os.environ.get("HUMILIS_STAGE")
+    ann["layer"] = os.environ.get("HUMILIS_LAYER")
+    ann["ts"] = time.time()
+    ann["key"] = key
+    _h = ev.get("_humilis", {})
+    if not _h:
+        ev["_humilis"] = {"annotation": [ann]}
+    else:
+        ev["_humilis"]["annotation"] = _h.get("annotation", [])
+        ev["_humilis"]["annotation"].append(ann)
+
+    return ev

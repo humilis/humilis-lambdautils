@@ -8,7 +8,7 @@ PYTHON := .env/bin/python
 
 # set up development environment
 develop: .env
-	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -e . -r requirements-dev.txt
 
 # run test suite
 test: develop
