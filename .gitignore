@@ -6,5 +6,6 @@
 *.egg-info
 *.pyc
 *.outputs.yaml
+tags
 
 __pycache__
