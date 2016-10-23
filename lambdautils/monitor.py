@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import socket
-import traceback
+import uuid
 
 import raven
 from raven.handlers.logging import SentryHandler
@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-GRAPHITE_HOST = "statsd.hostedgraphite.com"
-GRAPHITE_PORT = 8125
 
 
 def _sentry_context_dict(context):
@@ -45,184 +42,84 @@ def _sentry_context_dict(context):
     return d
 
 
-def sentry_monitor(environment=None, stage=None, layer=None,
-                   error_stream=None, sentry_key="sentry.dsn"):
-    """Monitor a function with Sentry."""
-    if environment is None:
-        environment = os.environ.get("HUMILIS_ENVIRONMENT")
-
-    if stage is None:
-        stage = os.environ.get("HUMILIS_STAGE")
-
-    if not error_stream:
-        error_stream = {}
-    config = {
-        "environment": environment,
-        "stage": stage,
-        "layer": layer,
-        "mapper": error_stream.get("mapper"),
-        "filter": error_stream.get("filter"),
-        "partition_key": error_stream.get("partition_key"),
-        "error_stream": error_stream.get("kinesis_stream"),
-        "error_delivery_stream": error_stream.get("firehose_delivery_stream")}
-    logger.info("Environment config: {}".format(config))
-
+def sentry_monitor(error_stream=None, **kwargs):
+    """Sentry monitoring for AWS Lambda handler."""
     def decorator(func):
         """A decorator that adds Sentry monitoring to a Lambda handler."""
         def wrapper(event, context):
-            logger.info("Retrieving Sentry DSN for environment '{}' and "
-                        "stage '{}'".format(environment, stage))
-            dsn = get_secret(sentry_key,
-                             environment=environment,
-                             stage=stage)
-
-            if dsn is None:
-                logger.warning("Unable to retrieve sentry DSN")
-            else:
-                try:
-                    client = raven.Client(dsn)
-                    handler = SentryHandler(client)
-                    logger.addHandler(handler)
-                except:
-                    # We don't want to break the application. Add some retry
-                    # logic later.
-                    logger.error("Raven client error: skipping Sentry")
-                    logger.error(traceback.print_exc())
-                    dsn = None
-
-            if dsn is not None:
-                client.user_context(_sentry_context_dict(context))
-
+            """Wrap the target function."""
+            client = _setup_sentry_client(context)
             try:
                 return func(event, context)
             except CriticalError:
-                if dsn is not None:
+                # Raise the exception and block the stream processor
+                if client:
                     client.captureException()
                 raise
-            except:
-                if dsn is not None:
-                    try:
-                        logger.error("AWS Lambda handler threw an exception",
-                                     exc_info=True)
-                    except:
-                        logger.error("Raven error capturing exception",
-                                     exc_info=True)
-                        raise
-
+            except Exception as err:
                 try:
-                    # Send the failed payloads to the errored events to the
-                    # error stream and resume
-                    if not config["error_stream"] \
-                            and not config["error_delivery_stream"]:
-                        msg = ("Error sending errors to Error stream: "
-                               "no error streams were provided")
-                        logger.error(msg)
-                        raise
-                    try:
-                        # Try unpacking as if it were a Kinesis event
-                        payloads, shard_id = unpack_kinesis_event(
-                            event, deserializer=None)
-                    except KeyError:
-                        # If not a Kinesis event, just unpack the records
-                        payloads = event["Records"]
-                        shard_id = None
-
-                    # Add info about the error so that we are able to
-                    # repush the events to the right place after fixing
-                    # them.
-                    error_payloads = []
-                    fc = config["filter"]
-                    mc = config["mapper"]
-                    state_args = dict(environment=environment, layer=layer,
-                                      stage=stage, shard_id=shard_id)
-                    for p in payloads:
-                        if fc and not fc(p, state_args):
-                            continue
-                        if mc:
-                            mc(p, state_args)
-
-                        payload = {
-                            "context": state_args,
-                            "payload": p}
-
-                        error_payloads.append(payload)
-
-                    logger.info("Error payloads: {}".format(
-                        json.dumps(error_payloads, indent=4)))
-
-                    if not error_payloads:
-                        logger.info("All error payloads were filtered out: "
-                                    "will silently ignore the errors")
-                        return
-
-                    if config["error_stream"]:
-                        send_to_kinesis_stream(
-                            error_payloads, config["error_stream"],
-                            partition_key=config["partition_key"])
-                        logger.info("Sent payload to Kinesis stream "
-                                    "'{}'".format(error_stream))
-                    else:
-                        logger.info("No error stream specified: skipping")
-
-                    if config["error_delivery_stream"]:
-                        send_to_delivery_stream(
-                            error_payloads, config["error_delivery_stream"])
-                        msg = ("Sent payload to Firehose delivery stream "
-                               "'{}'").format(config["error_delivery_stream"])
-                        logger.info(msg)
-                    else:
-                        logger.info("No delivery stream specified: skipping")
-
+                    _handle_non_critical_exception(err, error_stream, event)
                 except:
-                    if dsn is not None:
-                        try:
-                            client.captureException()
-                        except:
-                            logger.error("Raven error capturing exception",
-                                         exc_info=True)
-
+                    # If it could not be handled, it becomes critical
+                    if client:
+                        client.captureException()
                     raise
-                # If we were able to deliver the error events to the error
-                # stream, we ignore the exception to prevent blocking the
-                # pipeline.
-                pass
-        return wrapper
-    return decorator
-
-
-def graphite_monitor(metric, environment=None, stage=None, layer=None,
-                     graphite_key="graphite.api_key",
-                     counter=lambda ret: int(bool(ret))):
-    """Monitor a callable with Graphite."""
-
-    if environment is None:
-        environment = os.environ.get("HUMILIS_ENVIRONMENT")
-
-    if stage is None:
-        stage = os.environ.get("HUMILIS_STAGE")
-
-    if layer is None:
-        layer = os.environ.get("HUMILIS_LAYER")
-
-    if not getattr(graphite_monitor, "api_key", None):
-        graphite_monitor.api_key = get_secret(
-            graphite_key, environment=environment, stage=stage)
-        if not graphite_monitor.api_key:
-            logger.error(
-                "Unable to retrieve secret '{}' for environment {}/{}".format(
-                    graphite_key, environment, stage))
-
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            val = func(*args, **kwargs)
-            if graphite_monitor.api_key:
-                data = "{api_key}.{prefix}.{metric}:{val}|c".format(
-                    prefix="{}.{}.{}".format(environment, layer, stage),
-                    api_key=graphite_monitor.api_key, metric=metric,
-                    val=str(counter(val)))
-                sock.sendto(data, (GRAPHITE_HOST, GRAPHITE_PORT))
-            return val
-
         return wrapper
 
     return decorator
+
+
+def _setup_sentry_client(context):
+    """Produce and configure the sentry client."""
+
+    dsn = get_secret("sentry.dsn")
+    try:
+        client = raven.Client(dsn)
+        handler = SentryHandler(client)
+        logger.addHandler(handler)
+        client.user_context(_sentry_context_dict(context))
+        return client
+    except:
+        logger.error("Raven client error", exc_info=True)
+        return None
+
+
+def _handle_non_critical_exception(err, error_stream, event):
+    """Deliver errors to error stream."""
+    logger.error("AWS Lambda exception", exc_info=True)
+    errevents = _make_error_events(event)
+    logger.info("Error events: %s", json.dumps(errevents, indent=4))
+
+    kinesis_stream = error_stream.get("kinesis_stream")
+    if kinesis_stream:
+        send_to_kinesis_stream(
+            errevents,
+            kinesis_stream,
+            partition_key=error_stream.get("partition_key", str(uuid.uuid4())))
+        logger.info("Sent payload to Kinesis stream '%s'", error_stream)
+
+    delivery_stream = error_stream.get("firehose_delivery_stream")
+    if delivery_stream:
+        send_to_delivery_stream(errevents, delivery_stream)
+        logger.info("Sent payload to Firehose delivery stream '%s'",
+                    delivery_stream)
+
+    if not kinesis_stream and not delivery_stream:
+        # Promote to Critical exception
+        raise err
+
+
+def _make_error_events(event):
+    """Make error events."""
+    try:
+        recs, _ = unpack_kinesis_event(event, deserializer=None)
+    except KeyError:
+        # If not a Kinesis event, just unpack the records
+        recs = event["Records"]
+
+    return [{
+        "message_id": str(uuid.uuid4()),
+        "schema_version": "1.0.0",
+        "type": "error",
+        "channel": "polku",
+        "payload": rec} for rec in recs]

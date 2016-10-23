@@ -18,6 +18,7 @@ test: develop
 # remove virtualenv and layers dir
 clean:
 	rm -rf .env .tox
+	rm -rf tests/__pycache__ lambdautils/__pycache__ lambdautils/*.pyc tests/*.pyc
 
 # upload to Pypi
 pypi: develop

@@ -8,19 +8,8 @@ import lambdautils
 @pytest.mark.parametrize("exception", [
     lambdautils.utils.CriticalError,
     lambdautils.utils.StateTableError,
-    lambdautils.utils.BadKinesisEventError,
-    lambdautils.exception.RetryError])
+    lambdautils.utils.BadKinesisEventError])
 def test_exceptions(exception):
     """Test the exceptions defined by lambdautils."""
     with pytest.raises(exception):
         raise exception("Nasty error")
-
-
-@pytest.mark.parametrize("timeout", [1, 2, 3, 4])
-def test_retry_error(timeout):
-    """Test lambdautils.exception.RetryError."""
-
-    try:
-        raise lambdautils.exception.RetryError(timeout)
-    except lambdautils.exception.RetryError as err:
-        assert err.timeout == timeout

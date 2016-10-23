@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Fixtures."""
 
 
@@ -183,3 +182,11 @@ def cf_context():
             return 100
 
     return DummyContext()
+
+
+@pytest.fixture(autouse=True)
+def lambdaenv(monkeypatch):
+    """Set AWS Lambda environment variables."""
+    monkeypatch.setenv("HUMILIS_ENVIRONMENT", "dummyenv")
+    monkeypatch.setenv("HUMILIS_LAYER", "dummylayer")
+    monkeypatch.setenv("HUMILIS_STAGE", "dummystage")

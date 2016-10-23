@@ -20,8 +20,8 @@ import lambdautils.utils
 @pytest.mark.parametrize(
     "key,environment,stage,namespace,table,nkey", [
         ("k", "e", "s", None, "e-s-secrets", "k"),
-        ("k", "e", None, None, "e-secrets", "k"),
-        ("k", "e", None, "n", "e-secrets", "n:k"),
+        ("k", "e", None, None, "e-dummystage-secrets", "k"),
+        ("k", "e", None, "n", "e-dummystage-secrets", "n:k"),
         ("k", "e", "s", "n", "e-s-secrets", "n:k")])
 def test_get_secret(key, environment, stage, namespace, table, nkey,
                     boto3_resource, boto3_client, monkeypatch):
@@ -59,7 +59,6 @@ def test_get_environment_setting(monkeypatch):
         ("k", "e", "l", "s", None, None, "e-l-s-state", False, "k"),
         ("k", "e", "l", "s", None, "n", "e-l-s-state", False, "n:k"),
         ("k", "e", "l", "s", "s-012", "n", "e-l-s-state", True, "s-012:n:k"),
-        ("k", "e", "l", None, "s-012", "n", "e-l-state", True, "s-012:n:k"),
         ("k", "e", "l", "s", "s-0001", None, "e-l-s-state", True, "s-0001:k")])
 def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
                    stage, shard_id, namespace, table, consistent, nkey):
@@ -80,6 +79,7 @@ def test_get_state(boto3_resource, monkeypatch, key, environment, layer,
 def test_no_state_table(boto3_resource, monkeypatch):
     """Test accessing state variable without having a state table."""
     monkeypatch.setattr("boto3.resource", boto3_resource)
+    monkeypatch.delenv("HUMILIS_ENVIRONMENT")
     with pytest.raises(lambdautils.state.StateTableError):
         lambdautils.utils.set_state("sample_state_key", "sample_state_value")
 
@@ -95,7 +95,6 @@ def test_no_state_table(boto3_resource, monkeypatch):
         ("k", "v", "e", "l", "s", None, None, "e-l-s-state", "k"),
         ("k", "v", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
         ("k", "v", "e", "l", "s", "s1", "n", "e-l-s-state", "s1:n:k"),
-        ("k", "v", "e", "l", None, "s-00012", "n", "e-l-state", "s-00012:n:k"),
         ("k", "v", "e", "l", "s", "s2", None, "e-l-s-state", "s2:k")])
 def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
                    stage, shard_id, namespace, table, nkey):
@@ -114,7 +113,6 @@ def test_set_state(boto3_resource, monkeypatch, key, value, environment, layer,
         ("k", "e", "l", "s", None, None, "e-l-s-state", "k"),
         ("k", "e", "l", "s", None, "n", "e-l-s-state", "n:k"),
         ("k", "e", "l", "s", "s1", "n", "e-l-s-state", "s1:n:k"),
-        ("k", "e", "l", None, "s-00012", "n", "e-l-state", "s-00012:n:k"),
         ("k", "e", "l", "s", "s2", None, "e-l-s-state", "s2:k")])
 def test_delete_state(boto3_resource, monkeypatch, key, environment,
                       layer, stage, shard_id, namespace, table, nkey):
@@ -128,49 +126,9 @@ def test_delete_state(boto3_resource, monkeypatch, key, environment,
         Key={"id": nkey})
 
 
-def test_graphite_monitor(context, boto3_client, monkeypatch):
-    sock = Mock()
-    sock.sendto = Mock()
-    monkeypatch.setattr("lambdautils.monitor.sock", sock)
-    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_HOST", "H")
-    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_PORT", "P")
-    monkeypatch.setattr("boto3.client", boto3_client)
-
-    @lambdautils.monitor.graphite_monitor(
-        "metric", environment="env", stage="stage", layer="layer")
-    def func():
-        return True
-
-    val = func()
-    assert val is True
-    sock.sendto.assert_called_with("dummy.env.layer.stage.metric:1|c",
-                                   ("H", "P"))
-
-
-def test_graphite_monitor_envars(context, boto3_client, monkeypatch):
-    sock = Mock()
-    sock.sendto = Mock()
-    monkeypatch.setattr("lambdautils.monitor.sock", sock)
-    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_HOST", "H")
-    monkeypatch.setattr("lambdautils.monitor.GRAPHITE_PORT", "P")
-    monkeypatch.setattr("boto3.client", boto3_client)
-    monkeypatch.setenv("HUMILIS_ENVIRONMENT", "env")
-    monkeypatch.setenv("HUMILIS_LAYER", "layer")
-    monkeypatch.setenv("HUMILIS_STAGE", "stage")
-
-    @lambdautils.monitor.graphite_monitor("metric")
-    def func():
-        return True
-
-    val = func()
-    assert val is True
-    sock.sendto.assert_called_with("dummy.env.layer.stage.metric:1|c",
-                                   ("H", "P"))
-
-
 def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
                                    monkeypatch):
-    """Tests that sentry_monitor handles raven client errors gracefully."""
+    """Test that sentry_monitor handles raven client errors gracefully."""
 
     class ClientError(Exception):
         pass
@@ -194,18 +152,15 @@ def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
 
 
 @pytest.mark.parametrize(
-    "kstream, fstream, mapper, filter, rcalls, kcalls, fcalls, ev", [
-        ("a", "b", None, None, 0, 1, 1, {"Records": [{}]}),
-        (None, "b", None, None, 0, 0, 1, {"Records": [{}]}),
-        (None, None, None, None, 1, 0, 0, None),
-        (None, None, lambda x, sa: x, lambda x, sa: True, 1, 0, 0, None),
-        ("a", "b", None, lambda x, sa: True, 0, 1, 1, None),
-        ("a", "b", None, lambda x, sa: False, 0, 0, 0, None),
-        ("a", "b", lambda x, sa: x, lambda x, sa: False, 0, 0, 0, None),
-        ("a", "b", lambda x, sa: x, lambda x, sa: True, 0, 1, 1, None),
-        ("a", None, None, None, 0, 1, 0, None)])
-def test_sentry_monitor_exception_with_error_stream(
-        kstream, fstream, mapper, filter, rcalls, kcalls, fcalls, ev,
+    "kstream, fstream, rcalls, kcalls, fcalls, ev", [
+        ("a", "b", 0, 1, 1, {"Records": [{}]}),
+        (None, "b", 0, 0, 1, {"Records": [{}]}),
+        (None, None, 1, 0, 0, None),
+        (None, None, 1, 0, 0, None),
+        ("a", "b", 0, 1, 1, None),
+        ("a", None, 0, 1, 0, None)])
+def test_sentry_monitor_exception(
+        kstream, fstream, rcalls, kcalls, fcalls, ev,
         boto3_client, raven_client, context, kinesis_event, monkeypatch):
     """Tests the sentry_monitor decorator when throwing an exception and
     lacking an error stream where to dump the errors."""
@@ -223,15 +178,11 @@ def test_sentry_monitor_exception_with_error_stream(
 
     error_stream = {
         "kinesis_stream": kstream,
-        "firehose_delivery_stream": fstream,
-        "mapper": mapper,
-        "filter": filter}
+        "firehose_delivery_stream": fstream}
 
-    @lambdautils.utils.sentry_monitor(environment="dummyenv",
-                                      layer="dummylayer",
-                                      stage="dummystage",
-                                      error_stream=error_stream)
+    @lambdautils.utils.sentry_monitor(error_stream=error_stream)
     def lambda_handler(event, context):
+        """Raise an error."""
         raise KeyError
 
     if not kstream and not fstream:
