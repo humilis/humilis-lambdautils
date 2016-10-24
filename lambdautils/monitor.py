@@ -2,6 +2,7 @@
 
 import json
 import logging
+import operator
 import os
 import socket
 import uuid
@@ -58,8 +59,7 @@ def sentry_monitor(error_stream=None, **kwargs):
                 raise
             except ProcessingError as err:
                 # A controlled exception from the Kinesis processor
-                _handle_non_critical_exception(
-                    err, error_stream, err.events, client)
+                _handle_processing_error(err, error_stream, client)
             except Exception as err:
                 # An uncontrolled (by default non-critical) exception
                 recs = _get_records(event)
@@ -83,6 +83,21 @@ def _setup_sentry_client(context):
     except:
         logger.error("Raven client error", exc_info=True)
         return None
+
+
+def _handle_processing_error(err, error_stream, client):
+    """Handle ProcessingError exceptions."""
+
+    errors = sorted(err, key=operator.itemgetter(0))
+    failed_events = [error.event for error in errors]
+    _handle_non_critical_exception(err, error_stream, failed_events, client)
+    for _, event, error in errors:
+        try:
+            raise error
+        except type(error) as catched_error:
+            msg = "{}: {}".format(catched_error.message,
+                                  json.dumps(event, indent=4))
+            logger.error(msg, exc_info=True)
 
 
 def _handle_non_critical_exception(err, error_stream, recs, client):
