@@ -90,8 +90,8 @@ def _handle_processing_error(err, error_stream, client):
     """Handle ProcessingError exceptions."""
 
     logger.error("Caught a non-blocking exception", exc_info=True)
-    errors = sorted(err, key=operator.itemgetter(0))
-    failed_events = [error.event for error in errors]
+    errors = sorted(err.events, key=operator.itemgetter(0))
+    failed_events = [error[1] for error in errors]
     _handle_non_critical_exception(err, error_stream, failed_events, client)
     for _, event, error in errors:
         try:
@@ -106,6 +106,9 @@ def _handle_non_critical_exception(err, error_stream, recs, client):
     """Deliver errors to error stream."""
     try:
         logger.error("AWS Lambda exception", exc_info=True)
+        logger.info("Going to handle %s failed events", len(recs))
+        if recs:
+            logger.info("First event: %s", json.dumps(recs[0], indent=4))
         errevents = _make_error_events(err, recs)
         logger.info("Error events: %s", json.dumps(errevents, indent=4))
 

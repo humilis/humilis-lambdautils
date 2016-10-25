@@ -66,7 +66,7 @@ def unpack_kinesis_event(kinesis_event, deserializer=None,
 def send_to_delivery_stream(events, stream_name):
     """Sends a list of events to a Firehose delivery stream."""
     if not events:
-        logger.info("No events provider: nothing delivered to Firehose")
+        logger.info("No events provided: nothing delivered to Firehose")
         return
 
     records = []
@@ -88,7 +88,7 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None,
                            serializer=json.dumps):
     """Sends events to a Kinesis stream."""
     if not events:
-        logger.info("No events provider: nothing delivered to Firehose")
+        logger.info("No events provided: nothing delivered to Firehose")
         return
 
     records = []
