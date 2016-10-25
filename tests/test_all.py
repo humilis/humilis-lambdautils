@@ -210,6 +210,7 @@ def test_sentry_monitor_critical_exception(context, kinesis_event,
     monkeypatch.setattr("logging.getLogger", Mock())
     monkeypatch.setattr("logging.NullHandler", Mock())
     monkeypatch.setattr("lambdautils.monitor.SentryHandler", Mock())
+    monkeypatch.setattr("lambdautils.monitor.logger", Mock())
 
     @lambdautils.utils.sentry_monitor(environment="dummyenv",
                                       layer="dummylayer",
