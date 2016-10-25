@@ -54,6 +54,7 @@ def sentry_monitor(error_stream=None, **kwargs):
                 return func(event, context)
             except CriticalError:
                 # Raise the exception and block the stream processor
+                logger.error("Caught a blocking exception", exc_info=True)
                 if client:
                     client.captureException()
                 raise
@@ -88,6 +89,7 @@ def _setup_sentry_client(context):
 def _handle_processing_error(err, error_stream, client):
     """Handle ProcessingError exceptions."""
 
+    logger.error("Caught a non-blocking exception", exc_info=True)
     errors = sorted(err, key=operator.itemgetter(0))
     failed_events = [error.event for error in errors]
     _handle_non_critical_exception(err, error_stream, failed_events, client)
