@@ -2,11 +2,11 @@
 
 import base64
 from datetime import datetime
-from dateutil import tz
 import json
 import logging
 import uuid
 
+from dateutil import tz
 import boto3
 
 logger = logging.getLogger(__name__)
@@ -14,6 +14,9 @@ logger.addHandler(logging.NullHandler())
 
 
 class BadKinesisEventError(Exception):
+
+    """Malformed Kinesis Event."""
+
     pass
 
 
@@ -62,6 +65,10 @@ def unpack_kinesis_event(kinesis_event, deserializer=None,
 
 def send_to_delivery_stream(events, stream_name):
     """Sends a list of events to a Firehose delivery stream."""
+    if not events:
+        logger.info("No events provider: nothing delivered to Firehose")
+        return
+
     records = []
     for event in events:
         if not isinstance(event, str):
@@ -69,8 +76,8 @@ def send_to_delivery_stream(events, stream_name):
             event = json.dumps(event) + "\n"
         records.append({"Data": event})
     firehose = boto3.client("firehose")
-    logger.info("Delivering {} records to Firehose stream '{}'".format(
-        len(records), stream_name))
+    logger.info("Delivering %s records to Firehose stream '%s'",
+                len(records), stream_name)
     resp = firehose.put_record_batch(
         DeliveryStreamName=stream_name,
         Records=records)
@@ -80,6 +87,10 @@ def send_to_delivery_stream(events, stream_name):
 def send_to_kinesis_stream(events, stream_name, partition_key=None,
                            serializer=json.dumps):
     """Sends events to a Kinesis stream."""
+    if not events:
+        logger.info("No events provider: nothing delivered to Firehose")
+        return
+
     records = []
     for event in events:
         if partition_key is None:
