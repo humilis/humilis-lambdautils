@@ -16,9 +16,13 @@ from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
                       send_to_delivery_stream)
 from .exception import CriticalError, ProcessingError
 
-
+# Sentry logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
+
+# The AWS Lambda logger
+rlogger = logging.getLogger()
+rlogger.setLevel(logging.INFO)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -106,9 +110,9 @@ def _handle_non_critical_exception(err, error_stream, recs, client):
     """Deliver errors to error stream."""
     try:
         logger.error("AWS Lambda exception", exc_info=True)
-        logger.warning("Going to handle %s failed events", len(recs))
+        rlogger.info("Going to handle %s failed events", len(recs))
         if recs:
-            logger.warning(
+            rlogger.info(
                 "First failed event: %s", json.dumps(recs[0], indent=4))
         errevents = _make_error_events(err, recs)
 
@@ -119,14 +123,14 @@ def _handle_non_critical_exception(err, error_stream, recs, client):
                 kinesis_stream,
                 partition_key=error_stream.get("partition_key",
                                                str(uuid.uuid4())))
-            logger.warning("Sent error payload to Kinesis stream '%s'",
-                           error_stream)
+            rlogger.info("Sent error payload to Kinesis stream '%s'",
+                         error_stream)
 
         delivery_stream = error_stream.get("firehose_delivery_stream")
         if delivery_stream:
             send_to_delivery_stream(errevents, delivery_stream)
-            logger.warning("Sent error payload to Firehose delivery stream '%s'",
-                            delivery_stream)
+            rlogger.info("Sent error payload to Firehose delivery stream '%s'",
+                         delivery_stream)
 
         if not kinesis_stream and not delivery_stream:
             # Promote to Critical exception
