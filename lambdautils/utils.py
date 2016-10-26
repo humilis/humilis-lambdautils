@@ -75,9 +75,6 @@ def annotate_callable(func):
 
 def annotate_event(ev, key):
     ann = {}
-    ann["environment"] = os.environ.get("HUMILIS_ENVIRONMENT")
-    ann["stage"] = os.environ.get("HUMILIS_STAGE")
-    ann["layer"] = os.environ.get("HUMILIS_LAYER")
     ann["ts"] = time.time()
     ann["key"] = key
     _h = ev.get("_humilis", {})
