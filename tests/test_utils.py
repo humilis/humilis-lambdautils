@@ -71,9 +71,6 @@ def test_annotate_callable(monkeypatch):
     def mapper(ev, *args, **kwargs):
         return ev
 
-    for envvar in ["HUMILIS_" + v for v in ["ENVIRONMENT", "STAGE", "LAYER"]]:
-        monkeypatch.setenv(envvar, str(uuid.uuid4()))
-
     annev = mapper({})
     anns = annev["_humilis"]["annotation"]
     # One input and one output annotation
@@ -81,7 +78,7 @@ def test_annotate_callable(monkeypatch):
     # Annotation should be sorted by ts
     assert anns[1]["ts"] > anns[0]["ts"]
     # Check the annotation schema
-    KEYS = {"environment", "stage", "layer", "ts", "key"}
+    KEYS = {"ts", "key"}
     for ann in anns:
         assert not set(ann.keys()).symmetric_difference(KEYS)
         # All annotation properties must be populated
