@@ -4,7 +4,6 @@ import json
 import logging
 import operator
 import os
-import socket
 import uuid
 
 import raven
@@ -14,7 +13,7 @@ from .state import get_secret
 
 from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
                       send_to_delivery_stream)
-from .exception import CriticalError, ProcessingError
+from .exception import CriticalError, ProcessingError, OutOfOrderError
 
 # Sentry logger
 logger = logging.getLogger(__name__)
@@ -23,8 +22,6 @@ logger.setLevel(logging.WARNING)
 # The AWS Lambda logger
 rlogger = logging.getLogger()
 rlogger.setLevel(logging.INFO)
-
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 
 def _sentry_context_dict(context):
@@ -90,14 +87,18 @@ def _setup_sentry_client(context):
         return None
 
 
-def _handle_processing_error(err, error_stream, client):
+def _handle_processing_error(err, errstream, client):
     """Handle ProcessingError exceptions."""
 
     logger.error("Caught a non-blocking exception", exc_info=True)
     errors = sorted(err.events, key=operator.itemgetter(0))
-    failed_events = [error[1] for error in errors]
-    _handle_non_critical_exception(err, error_stream, failed_events, client)
+    failed = [e[1] for e in errors]
+    silent = all(isinstance(e[2], OutOfOrderError) for e in err.events)
+    _handle_non_critical_exception(err, errstream, failed, client, silent)
     for _, event, error in errors:
+        if isinstance(error, OutOfOrderError):
+            # Not really an error: do not log this to Sentry
+            continue
         try:
             raise error
         except type(error) as catched_error:
@@ -106,27 +107,29 @@ def _handle_processing_error(err, error_stream, client):
             logger.error(msg, exc_info=True)
 
 
-def _handle_non_critical_exception(err, error_stream, recs, client):
+def _handle_non_critical_exception(err, errstream, recs, client, silent=False):
     """Deliver errors to error stream."""
     try:
-        logger.error("AWS Lambda exception", exc_info=True)
+        if silent:
+            logger.info("AWS Lambda exception", exc_info=True)
+        else:
+            logger.error("AWS Lambda exception", exc_info=True)
         rlogger.info("Going to handle %s failed events", len(recs))
         if recs:
             rlogger.info(
                 "First failed event: %s", json.dumps(recs[0], indent=4))
         errevents = _make_error_events(err, recs)
 
-        kinesis_stream = error_stream.get("kinesis_stream")
+        kinesis_stream = errstream.get("kinesis_stream")
+        randomkey = str(uuid.uuid4())
         if kinesis_stream:
             send_to_kinesis_stream(
                 errevents,
                 kinesis_stream,
-                partition_key=error_stream.get("partition_key",
-                                               str(uuid.uuid4())))
-            rlogger.info("Sent error payload to Kinesis stream '%s'",
-                         error_stream)
+                partition_key=errstream.get("partition_key", randomkey))
+            rlogger.info("Sent errors to Kinesis stream '%s'", errstream)
 
-        delivery_stream = error_stream.get("firehose_delivery_stream")
+        delivery_stream = errstream.get("firehose_delivery_stream")
         if delivery_stream:
             send_to_delivery_stream(errevents, delivery_stream)
             rlogger.info("Sent error payload to Firehose delivery stream '%s'",

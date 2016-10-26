@@ -17,6 +17,13 @@ class ProcessingError(Exception):
         self.events = events
 
 
+class OutOfOrderError(Exception):
+
+    """An event is out of order: not really an error."""
+
+    pass
+
+
 class StateTableError(Exception):
 
     """Unable to retrieve the name of a processor state table."""
