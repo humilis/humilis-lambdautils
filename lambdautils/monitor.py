@@ -90,10 +90,9 @@ def _setup_sentry_client(context):
 def _handle_processing_error(err, errstream, client):
     """Handle ProcessingError exceptions."""
 
-    logger.error("Caught a non-blocking exception", exc_info=True)
-    errors = sorted(err.events, key=operator.itemgetter(0))
-    failed = [e[1] for e in errors]
-    silent = all(isinstance(e[2], OutOfOrderError) for e in err.events)
+    errors = sorted(err.events, key=operator.attrgetter("index"))
+    failed = [e.event for e in errors]
+    silent = all(isinstance(e.error, OutOfOrderError) for e in errors)
     _handle_non_critical_exception(err, errstream, failed, client, silent)
     for _, event, error in errors:
         if isinstance(error, OutOfOrderError):
