@@ -69,11 +69,11 @@ def annotate_function(namespace=None):
             key = _make_key(namespace, funcname + "|input")
             ev = annotate_event(ev, key)
             try:
-                ev = func(ev, *args, **kwargs)
+                out = func(ev, *args, **kwargs)
             finally:
                 key = _make_key(key, funcname + "|output")
                 ev = annotate_event(ev, key)
-            return ev
+            return out
 
         return wrapper
     return decorator
