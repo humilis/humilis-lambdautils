@@ -59,23 +59,34 @@ def send_cf_response(event, context, response_status, reason=None,
         return False
 
 
-def annotate_callable(func):
-    """Func decorator to annotate events with entry and/or exit timestamps."""
-    def wrapper(ev, *args, **kwargs):
-        funcname = ":".join([func.__module__, func.__name__])
-        ann_key = funcname + "|input"
-        ev = annotate_event(ev, ann_key)
-        ev = func(ev, *args, **kwargs)
-        ann_key = funcname + "|output"
-        ev = annotate_event(ev, ann_key)
-        return ev
+def annotate_callable(namespace=None):
+    """Add input and output watermarks to processed events."""
+    if namespace:
+        prefix = namespace + "|"
+    else:
+        prefix = ""
+    def decorator(func):
+        """Func decorator to annotate events with entry and/or exit timestamps."""
+        def wrapper(ev, *args, **kwargs):
+            funcname = ":".join([func.__module__, func.__name__])
+            ann_key = "{}{}|input".format(prefix, funcname)
+            ev = annotate_event(ev, ann_key)
+            try:
+                ev = func(ev, *args, **kwargs)
+            finally:
+                ann_key = "{}{}|output".format(prefix, funcname)
+                ev = annotate_event(ev, ann_key)
+            return ev
 
-    return wrapper
+        return wrapper
+    return decorator
 
 
-def annotate_event(ev, key):
+def annotate_event(ev, key, namespace=None):
     ann = {}
     ann["ts"] = time.time()
+    if namespace:
+        key = "{}|{}".format(namespace, key)
     ann["key"] = key
     _h = ev.get("_humilis", {})
     if not _h:

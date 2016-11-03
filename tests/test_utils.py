@@ -67,7 +67,7 @@ def test_annotate_event(ev, monkeypatch):
 def test_annotate_callable(monkeypatch):
     """Test annotate_callable function decorator."""
 
-    @lambdautils.utils.annotate_callable
+    @lambdautils.utils.annotate_callable()
     def mapper(ev, *args, **kwargs):
         return ev
 
