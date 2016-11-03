@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import time
 
 try:
@@ -59,23 +60,19 @@ def send_cf_response(event, context, response_status, reason=None,
         return False
 
 
-def annotate_callable(namespace=None):
+def annotate_function(namespace=None):
     """Add input and output watermarks to processed events."""
-    if namespace:
-        prefix = namespace + "|"
-    else:
-        prefix = ""
     def decorator(func):
         """Func decorator to annotate events with entry and/or exit timestamps."""
         def wrapper(ev, *args, **kwargs):
             funcname = ":".join([func.__module__, func.__name__])
-            ann_key = "{}{}|input".format(prefix, funcname)
-            ev = annotate_event(ev, ann_key)
+            key = _make_key(namespace, funcname + "|input")
+            ev = annotate_event(ev, key)
             try:
                 ev = func(ev, *args, **kwargs)
             finally:
-                ann_key = "{}{}|output".format(prefix, funcname)
-                ev = annotate_event(ev, ann_key)
+                key = _make_key(key, funcname + "|output")
+                ev = annotate_event(ev, key)
             return ev
 
         return wrapper
@@ -83,11 +80,10 @@ def annotate_callable(namespace=None):
 
 
 def annotate_event(ev, key, namespace=None):
+    """Add an annotation to an event."""
     ann = {}
     ann["ts"] = time.time()
-    if namespace:
-        key = "{}|{}".format(namespace, key)
-    ann["key"] = key
+    ann["key"] = _make_key(namespace, key)
     _h = ev.get("_humilis", {})
     if not _h:
         ev["_humilis"] = {"annotation": [ann]}
@@ -98,3 +94,25 @@ def annotate_event(ev, key, namespace=None):
     return ev
 
 
+def get_annotations(event, key, namespace=None):
+    """Produce the list of annotations for a given key."""
+    key = _make_key(namespace, key)
+    return [ann for ann in event.get("_humilis", {}).get("annotation", [])
+            if re.match(key, ann["key"])]
+
+
+def get_function_annotations(event, funcname, type=None, namespace=None):
+    """Produce a list of function annotations in in this event."""
+    if type:
+        postfix = "|" + type
+    else:
+        postfix = "|.+"
+    return get_annotations(event, funcname + postfix, namespace)
+
+
+def _make_key(namespace, key):
+    """Build a namespaced annotation key."""
+    if namespace:
+        return "{}|{}".format(namespace, key)
+    else:
+        return key

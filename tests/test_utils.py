@@ -64,10 +64,10 @@ def test_annotate_event(ev, monkeypatch):
             counter += 1
 
 
-def test_annotate_callable(monkeypatch):
-    """Test annotate_callable function decorator."""
+def test_annotate_function(monkeypatch):
+    """Test annotate_function function decorator."""
 
-    @lambdautils.utils.annotate_callable()
+    @lambdautils.utils.annotate_function()
     def mapper(ev, *args, **kwargs):
         return ev
 
@@ -83,3 +83,17 @@ def test_annotate_callable(monkeypatch):
         assert not set(ann.keys()).symmetric_difference(KEYS)
         # All annotation properties must be populated
         assert None not in set(ann.values())
+
+
+def test_get_function_annotations(monkeypatch):
+    """Test annotate_function function decorator."""
+
+    @lambdautils.utils.annotate_function()
+    def mapper(ev, *args, **kwargs):
+        return ev
+
+    annev = mapper({})
+    annev = mapper(annev)
+
+    assert len(lambdautils.utils.get_function_annotations(
+        annev, "test_utils:mapper")) == 4
