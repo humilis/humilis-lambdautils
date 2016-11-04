@@ -42,14 +42,14 @@ def test_get_secret(key, environment, stage, namespace, table, nkey,
     boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
 
 
-def test_get_environment_setting(monkeypatch):
+def test_get_setting(monkeypatch):
     """Should be an alias for get_secret."""
     resp = str(uuid.uuid4())
     arg = str(uuid.uuid4())
     kwarg = str(uuid.uuid4())
     get_secret = Mock(return_value=resp)
     monkeypatch.setattr("lambdautils.state.get_secret", get_secret)
-    resp2 = lambdautils.state.get_environment_setting(arg, kwarg=kwarg)
+    resp2 = lambdautils.state.get_setting(arg, kwarg=kwarg)
     assert resp2 == resp
     get_secret.assert_called_with(arg, kwarg=kwarg)
 

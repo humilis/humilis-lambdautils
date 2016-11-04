@@ -124,7 +124,7 @@ def get_secret(key, environment=None, stage=None, namespace=None,
     return value
 
 
-def get_environment_setting(*args, **kwargs):
+def get_setting(*args, **kwargs):
     """Get environment setting."""
     return get_secret(*args, **kwargs)
 
