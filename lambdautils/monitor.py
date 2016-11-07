@@ -110,7 +110,7 @@ def _handle_non_critical_exception(err, errstream, recs, client, silent=False):
     """Deliver errors to error stream."""
     try:
         if silent:
-            logger.info("AWS Lambda exception", exc_info=True)
+            rlogger.info("AWS Lambda exception", exc_info=True)
         else:
             logger.error("AWS Lambda exception", exc_info=True)
         rlogger.info("Going to handle %s failed events", len(recs))
