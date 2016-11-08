@@ -68,8 +68,9 @@ def test_annotate_function(monkeypatch):
     """Test annotate_function function decorator."""
 
     @lambdautils.utils.annotate_function()
-    def mapper(ev, *args, **kwargs):
-        return ev
+    def mapper(event, *args, **kwargs):
+        """A dummy mapper."""
+        return event
 
     annev = mapper({})
     anns = annev["_humilis"]["annotation"]
@@ -78,9 +79,9 @@ def test_annotate_function(monkeypatch):
     # Annotation should be sorted by ts
     assert anns[1]["ts"] > anns[0]["ts"]
     # Check the annotation schema
-    KEYS = {"ts", "key"}
+    keys = {"ts", "key", "namespace"}
     for ann in anns:
-        assert not set(ann.keys()).symmetric_difference(KEYS)
+        assert not set(ann.keys()).symmetric_difference(keys)
         # All annotation properties must be populated
         assert None not in set(ann.values())
 

@@ -60,35 +60,46 @@ def send_cf_response(event, context, response_status, reason=None,
         return False
 
 
-def annotate_function(namespace=None):
+def annotate_function(**decargs):
     """Add input and output watermarks to processed events."""
     def decorator(func):
-        """Func decorator to annotate events with entry and/or exit timestamps."""
-        def wrapper(ev, *args, **kwargs):
+        """Annotate events with entry and/or exit timestamps."""
+        def wrapper(event, *args, **kwargs):
+            """Add enter and exit annotations to the processed event."""
             funcname = ":".join([func.__module__, func.__name__])
-            key = _make_key(namespace, funcname + "|input")
-            ev = annotate_event(ev, key)
-            try:
-                out = func(ev, *args, **kwargs)
-            finally:
-                key = _make_key(key, funcname + "|output")
-                ev = annotate_event(ev, key)
+            enter_ts = time.time()
+            out = func(event, *args, **kwargs)
+            enter_key = funcname + "|enter"
+            out = annotate_event(out, enter_key, ts=enter_ts, **decargs)
+            exit_key = funcname + "|exit"
+            out = annotate_event(out, exit_key, ts=time.time(), **decargs)
             return out
 
         return wrapper
     return decorator
 
 
-def annotate_event(ev, key, namespace=None):
+def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
     """Add an annotation to an event."""
     ann = {}
-    ann["ts"] = time.time()
-    ann["key"] = _make_key(namespace, key)
-    _h = ev.get("_humilis", {})
-    if not _h:
+    if ts is None:
+        ts = time.time()
+    ann["ts"] = ts
+    ann["key"] = key
+    if namespace is None and "HUMILIS_ENVIRONMENT" in os.environ:
+        namespace = "{}:{}:{}".format(
+            os.environ.get("HUMILIS_ENVIRONMENT"),
+            os.environ.get("HUMILIS_LAYER"),
+            os.environ.get("HUMILIS_STAGE"))
+
+    if namespace is not None:
+        ann["namespace"] = namespace
+    ann.update(kwargs)
+    _humilis = ev.get("_humilis", {})
+    if not _humilis:
         ev["_humilis"] = {"annotation": [ann]}
     else:
-        ev["_humilis"]["annotation"] = _h.get("annotation", [])
+        ev["_humilis"]["annotation"] = _humilis.get("annotation", [])
         ev["_humilis"]["annotation"].append(ann)
 
     return ev
@@ -96,9 +107,9 @@ def annotate_event(ev, key, namespace=None):
 
 def get_annotations(event, key, namespace=None):
     """Produce the list of annotations for a given key."""
-    key = _make_key(namespace, key)
     return [ann for ann in event.get("_humilis", {}).get("annotation", [])
-            if re.match(key, ann["key"])]
+            if (re.match(key, ann["key"]) and
+                (namespace is None or ann.get("namespace") == namespace))]
 
 
 def get_function_annotations(event, funcname, type=None, namespace=None):
@@ -108,11 +119,3 @@ def get_function_annotations(event, funcname, type=None, namespace=None):
     else:
         postfix = "|.+"
     return get_annotations(event, funcname + postfix, namespace)
-
-
-def _make_key(namespace, key):
-    """Build a namespaced annotation key."""
-    if namespace:
-        return "{}|{}".format(namespace, key)
-    else:
-        return key
