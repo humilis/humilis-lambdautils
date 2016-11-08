@@ -3,6 +3,8 @@
 import copy
 import json
 from mock import Mock
+import re
+import time
 import uuid
 
 import lambdautils.utils
@@ -64,7 +66,7 @@ def test_annotate_event(ev, monkeypatch):
             counter += 1
 
 
-def test_annotate_function(monkeypatch):
+def test_annotate_function():
     """Test annotate_function function decorator."""
 
     @lambdautils.utils.annotate_function()
@@ -86,15 +88,35 @@ def test_annotate_function(monkeypatch):
         assert None not in set(ann.values())
 
 
-def test_get_function_annotations(monkeypatch):
+def test_get_function_annotations():
     """Test annotate_function function decorator."""
 
     @lambdautils.utils.annotate_function()
-    def mapper(ev, *args, **kwargs):
-        return ev
+    def mapper(event, *args, **kwargs):
+        """A dummy mapper."""
+        return event
 
     annev = mapper({})
     annev = mapper(annev)
 
-    assert len(lambdautils.utils.get_function_annotations(
-        annev, "test_utils:mapper")) == 4
+    anns = lambdautils.utils.get_function_annotations(
+        annev, "test_utils:mapper")
+    assert len(anns) == 4
+
+
+def test_annotate_error():
+    """Test annotating an error."""
+    error = KeyError(1)
+    annev = lambdautils.utils.annotate_error({}, error)
+    anns = lambdautils.utils.get_annotations(annev, error)
+    assert len(anns) == 1
+
+
+def test_expired_error():
+    """Test checking for the expiration of an error."""
+    error = KeyError(1)
+    annev = lambdautils.utils.annotate_error({}, error)
+    time.sleep(0.1)
+    assert lambdautils.utils.error_has_expired(annev, error, 0.05)
+    assert not lambdautils.utils.error_has_expired(annev, error, 100)
+    assert not lambdautils.utils.error_has_expired(annev, ValueError(1), 0.05)

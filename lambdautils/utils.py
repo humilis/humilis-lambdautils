@@ -79,6 +79,28 @@ def annotate_function(**decargs):
     return decorator
 
 
+def annotate_error(event, error):
+    """Annotate an event with an associated error."""
+    return annotate_event(event, _error_repr(error))
+
+
+def _error_repr(error):
+    """A compact unique representation of an error."""
+    error_repr = repr(error)
+    if len(error_repr) > 200:
+        error_repr = hash(type(error))
+    return error_repr
+
+
+def error_has_expired(event, error, timeout):
+    """Check if an event error has expired."""
+    anns = get_annotations(event, error)
+    if anns:
+        return (time.time() - anns[0]["ts"]) > timeout
+    else:
+        return False
+
+
 def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
     """Add an annotation to an event."""
     ann = {}
@@ -105,10 +127,17 @@ def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
     return ev
 
 
-def get_annotations(event, key, namespace=None):
+def get_annotations(event, key, namespace=None, matchfunc=None):
     """Produce the list of annotations for a given key."""
+    def is_equal(matchkey, annotation_key):
+        """Check if the requested key is qual to an annotation key."""
+        return matchkey == annotation_key
+    if matchfunc is None:
+        matchfunc = is_equal
+    if isinstance(key, Exception):
+        key = _error_repr(key)
     return [ann for ann in event.get("_humilis", {}).get("annotation", [])
-            if (re.match(key, ann["key"]) and
+            if (matchfunc(key, ann["key"]) and
                 (namespace is None or ann.get("namespace") == namespace))]
 
 
@@ -118,4 +147,10 @@ def get_function_annotations(event, funcname, type=None, namespace=None):
         postfix = "|" + type
     else:
         postfix = "|.+"
-    return get_annotations(event, funcname + postfix, namespace)
+
+    def matchfunc(key, annkey):
+        """Check if the provider regex matches an annotation key."""
+        return re.match(key, annkey) is not None
+
+    return get_annotations(event, funcname + postfix, namespace=namespace,
+                           matchfunc=matchfunc)
