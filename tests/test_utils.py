@@ -66,10 +66,10 @@ def test_annotate_event(ev, monkeypatch):
             counter += 1
 
 
-def test_annotate_function():
-    """Test annotate_function function decorator."""
+def test_annotate_mapper():
+    """Test annotate_mapper function decorator."""
 
-    @lambdautils.utils.annotate_function()
+    @lambdautils.utils.annotate_mapper()
     def mapper(event, *args, **kwargs):
         """A dummy mapper."""
         return event
@@ -88,10 +88,33 @@ def test_annotate_function():
         assert None not in set(ann.values())
 
 
-def test_get_function_annotations():
-    """Test annotate_function function decorator."""
+def test_annotate_filter():
+    """Test annotate_filter function decorator."""
 
-    @lambdautils.utils.annotate_function()
+    @lambdautils.utils.annotate_filter()
+    def dummy_filter(event, *args, **kwargs):
+        """A dummy filter."""
+        return True
+
+    annev = {}
+    dummy_filter(annev)
+    anns = annev["_humilis"]["annotation"]
+    # One input and one output annotation
+    assert len(anns) == 2
+    # Annotation should be sorted by ts
+    assert anns[1]["ts"] > anns[0]["ts"]
+    # Check the annotation schema
+    keys = {"ts", "key", "namespace"}
+    for ann in anns:
+        assert not set(ann.keys()).symmetric_difference(keys)
+        # All annotation properties must be populated
+        assert None not in set(ann.values())
+
+
+def test_get_function_annotations():
+    """Test annotate_mapper function decorator."""
+
+    @lambdautils.utils.annotate_mapper()
     def mapper(event, *args, **kwargs):
         """A dummy mapper."""
         return event

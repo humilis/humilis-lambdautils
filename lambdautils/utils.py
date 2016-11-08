@@ -60,7 +60,7 @@ def send_cf_response(event, context, response_status, reason=None,
         return False
 
 
-def annotate_function(**decargs):
+def annotate_mapper(**decargs):
     """Add input and output watermarks to processed events."""
     def decorator(func):
         """Annotate events with entry and/or exit timestamps."""
@@ -73,6 +73,24 @@ def annotate_function(**decargs):
             out = annotate_event(out, enter_key, ts=enter_ts, **decargs)
             exit_key = funcname + "|exit"
             out = annotate_event(out, exit_key, ts=time.time(), **decargs)
+            return out
+
+        return wrapper
+    return decorator
+
+
+def annotate_filter(**decargs):
+    """Add input and output watermarks to filtered events."""
+    def decorator(func):
+        """Annotate events with entry and/or exit timestamps."""
+        def wrapper(event, *args, **kwargs):
+            """Add enter and exit annotations to the processed event."""
+            funcname = ":".join([func.__module__, func.__name__])
+            enter_key = funcname + "|enter"
+            annotate_event(event, enter_key, **decargs)
+            out = func(event, *args, **kwargs)
+            exit_key = funcname + "|exit"
+            annotate_event(event, exit_key, **decargs)
             return out
 
         return wrapper
