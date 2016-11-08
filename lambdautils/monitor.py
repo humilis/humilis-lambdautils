@@ -94,12 +94,12 @@ def _handle_processing_error(err, errstream, client):
     failed = [e.event for e in errors]
     silent = all(isinstance(e.error, OutOfOrderError) for e in errors)
     _handle_non_critical_exception(err, errstream, failed, client, silent)
-    for _, event, error in errors:
+    for _, event, error, tb in errors:
         if isinstance(error, OutOfOrderError):
             # Not really an error: do not log this to Sentry
             continue
         try:
-            raise error
+            raise error.with_traceback(tb)
         except type(error) as catched_error:
             msg = "{}: {}".format(catched_error.message,
                                   json.dumps(event, indent=4))
