@@ -99,11 +99,11 @@ def _handle_processing_error(err, errstream, client):
             # Not really an error: do not log this to Sentry
             continue
         try:
-            raise error.with_traceback(tb)
+            raise error
         except type(error) as catched_error:
             msg = "{}: {}".format(catched_error.message,
                                   json.dumps(event, indent=4))
-            logger.error(msg, exc_info=True)
+            logger.error(msg, exc_info=(type(error), error.args or None, tb))
 
 
 def _handle_non_critical_exception(err, errstream, recs, client, silent=False):

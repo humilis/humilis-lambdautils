@@ -92,13 +92,18 @@ def _error_repr(error):
     return error_repr
 
 
-def error_has_expired(event, error, timeout):
+def annotation_has_expired(event, key, timeout):
     """Check if an event error has expired."""
-    anns = get_annotations(event, error)
+    anns = get_annotations(event, key)
     if anns:
         return (time.time() - anns[0]["ts"]) > timeout
     else:
         return False
+
+
+def error_has_expired(event, error, timeout):
+    """An alias for annotation_has_expired."""
+    return annotation_has_expired(event, error, timeout)
 
 
 def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
