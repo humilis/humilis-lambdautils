@@ -124,6 +124,15 @@ def error_has_expired(event, error, timeout):
     return annotation_has_expired(event, error, timeout)
 
 
+def replace_event_annotations(event, newanns):
+    """Replace event annotations with the provided ones."""
+    _humilis = event.get("_humilis", {})
+    if not _humilis:
+        event["_humilis"] = {"annotation": newanns}
+    else:
+        event["_humilis"]["annotation"] = newanns
+
+
 def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
     """Add an annotation to an event."""
     ann = {}
@@ -145,23 +154,39 @@ def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
         ev["_humilis"] = {"annotation": [ann]}
     else:
         ev["_humilis"]["annotation"] = _humilis.get("annotation", [])
+        # Clean up previous annotations with the same key
+        delete_annotations(ev, key)
         ev["_humilis"]["annotation"].append(ann)
 
     return ev
 
 
+def _is_equal(matchkey, annotation_key):
+    """Default callabel to match annotation keys."""
+    return matchkey == annotation_key
+
+
 def get_annotations(event, key, namespace=None, matchfunc=None):
     """Produce the list of annotations for a given key."""
-    def is_equal(matchkey, annotation_key):
-        """Check if the requested key is qual to an annotation key."""
-        return matchkey == annotation_key
     if matchfunc is None:
-        matchfunc = is_equal
+        matchfunc = _is_equal
     if isinstance(key, Exception):
         key = _error_repr(key)
     return [ann for ann in event.get("_humilis", {}).get("annotation", [])
             if (matchfunc(key, ann["key"]) and
                 (namespace is None or ann.get("namespace") == namespace))]
+
+
+def delete_annotations(event, key, namespace=None, matchfunc=None):
+    """Delete all event annotations with a matching key."""
+    if matchfunc is None:
+        matchfunc = _is_equal
+    if isinstance(key, Exception):
+        key = _error_repr(key)
+    newanns = [ann for ann in event.get("_humilis", {}).get("annotation", [])
+               if not (matchfunc(key, ann["key"]) and
+                   (namespace is None or ann.get("namespace") == namespace))]
+    replace_event_annotations(event, newanns)
 
 
 def get_function_annotations(event, funcname, type=None, namespace=None):

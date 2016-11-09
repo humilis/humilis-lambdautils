@@ -124,7 +124,8 @@ def test_get_function_annotations():
 
     anns = lambdautils.utils.get_function_annotations(
         annev, "test_utils:mapper")
-    assert len(anns) == 4
+    # The second mapper call should have overwritten the original annotation
+    assert len(anns) == 2
 
 
 def test_annotate_error():
