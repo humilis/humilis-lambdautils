@@ -10,7 +10,8 @@ import boto3
 from botocore.exceptions import ClientError
 from retrying import retry
 
-from .exception import CriticalError, StateTableError, ContextError
+from lambdautils.exception import (CriticalError, StateTableError,
+                                   ContextError, NoParentError)
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

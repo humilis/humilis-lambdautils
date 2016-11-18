@@ -15,6 +15,13 @@ class ContextError(Exception):
     pass
 
 
+class NoParentError(Exception):
+
+    """An event parent context could not be retrieved."""
+
+    pass
+
+
 class ProcessingError(Exception):
 
     """Error processing event."""
