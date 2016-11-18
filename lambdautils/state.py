@@ -285,13 +285,12 @@ def delete_state(key, namespace=None, table_name=None, environment=None,
     return resp
 
 
-def embed_context(event, namespace, context_id):
+def embed_context(event, namespace, context_id, max_delay=None):
     """Embed context event."""
     try:
         context_obj = get_context(namespace, context_id)
     except NoParentError:
-        max_delay = get_max_arrival_delay()
-        if arrival_delay_greater_than(context_id, max_delay):
+        if max_delay and arrival_delay_greater_than(context_id, max_delay):
             contex_obj = {}
             LOGGER.error(
                 "Timeout: message '%s' waited %s seconds for context '%s'",
