@@ -307,7 +307,7 @@ def embed_context(event, namespace, context_id, max_delay=None):
 
 def get_context(namespace, context_id):
     """Get stored context object."""
-    context_obj = state.get_state(context_id, namespace=namespace)
+    context_obj = get_state(context_id, namespace=namespace)
     if not context_obj:
         raise ContextError("Context '{}' not found in namespace '{}'".format(
             context_id, namespace))
@@ -316,7 +316,7 @@ def get_context(namespace, context_id):
 
 def set_context(namespace, context_id, context_obj):
     """Store context object."""
-    return state.set_state(context_id, context_obj, namespace=namespace)
+    return set_state(context_id, context_obj, namespace=namespace)
 
 
 def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
