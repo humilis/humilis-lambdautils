@@ -320,7 +320,7 @@ def set_context(namespace, context_id, context_obj):
 
 def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
     """Check if an item arrival is delayed more than a given amount."""
-    expected = state.get_state(item_id, namespace=namespace)
+    expected = get_state(item_id, namespace=namespace)
     if expected and (time.time() - expected) > delay:
         logger.error("Timeout: waited %s seconds for parent.", delay)
         return True
@@ -328,7 +328,7 @@ def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
         logger.info("Still out of order but no timeout.")
         return False
     elif delay > 0:
-        state.set_state(item_id, time.time(), namespace=namespace)
+        set_state(item_id, time.time(), namespace=namespace)
         return False
     else:
         logger.info("Event is out of order but not waiting for parent.")
