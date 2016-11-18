@@ -9,7 +9,7 @@ import boto3
 from botocore.exceptions import ClientError
 from retrying import retry
 
-from .exception import CriticalError, StateTableError
+from .exception import CriticalError, StateTableError, ContextError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -282,3 +282,54 @@ def delete_state(key, namespace=None, table_name=None, environment=None,
 
     logger.info("Response from DynamoDB: '{}'".format(resp))
     return resp
+
+
+def embed_context(event, namespace, context_id):
+    """Embed context event."""
+    try:
+        context_obj = get_context(namespace, context_id)
+    except NoParentError:
+        max_delay = get_max_arrival_delay()
+        if arrival_delay_greater_than(context_id, max_delay):
+            contex_obj = {}
+            LOGGER.error(
+                "Timeout: message '%s' waited %s seconds for context '%s'",
+                event["message_id"], max_delay, context_id)
+        else:
+            msg = "Context '{}' for message '{}' not found: resorting".format(
+                context_id, event["message_id"])
+            raise OutOfOrderError(msg)
+
+    event["context"] = {namespace: context_obj}
+    return event
+
+
+def get_context(namespace, context_id):
+    """Get stored context object."""
+    context_obj = state.get_state(context_id, namespace=namespace)
+    if not context_obj:
+        raise ContextError("Context '{}' not found in namespace '{}'".format(
+            context_id, namespace))
+    return context_obj
+
+
+def set_context(namespace, context_id, context_obj):
+    """Store context object."""
+    return state.set_state(context_id, context_obj, namespace=namespace)
+
+
+def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
+    """Check if an item arrival is delayed more than a given amount."""
+    expected = state.get_state(item_id, namespace=namespace)
+    if expected and (time.time() - expected) > delay:
+        logger.error("Timeout: waited %s seconds for parent.", delay)
+        return True
+    elif expected:
+        logger.info("Still out of order but no timeout.")
+        return False
+    elif delay > 0:
+        state.set_state(item_id, time.time(), namespace=namespace)
+        return False
+    else:
+        logger.info("Event is out of order but not waiting for parent.")
+        return True

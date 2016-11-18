@@ -8,6 +8,13 @@ class CriticalError(Exception):
     pass
 
 
+class ContextError(Exception):
+
+    """Error retrieving context for event."""
+
+    pass
+
+
 class ProcessingError(Exception):
 
     """Error processing event."""
