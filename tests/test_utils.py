@@ -66,6 +66,16 @@ def test_annotate_event(ev, monkeypatch):
             counter += 1
 
 
+def test_strip_annotations():
+    """Test strip_annotations."""
+    ev = lambdautils.utils.annotate_event({}, "key", "value")
+    assert len(lambdautils.utils.get_annotations(ev, "key")) == 1
+    assert "_humilis" in ev
+    lambdautils.utils.strip_annotations(ev)
+    assert len(lambdautils.utils.get_annotations(ev, "key")) == 0
+    assert "_humilis" not in ev
+
+
 def test_annotate_mapper():
     """Test annotate_mapper function decorator."""
 

@@ -161,6 +161,13 @@ def annotate_event(ev, key, ts=None, namespace=None, **kwargs):
     return ev
 
 
+def strip_annotations(ev):
+    """Strip all annotations from event."""
+    if "_humilis" in ev:
+        del ev["_humilis"]
+    return ev
+
+
 def _is_equal(matchkey, annotation_key):
     """Default callabel to match annotation keys."""
     return matchkey == annotation_key
