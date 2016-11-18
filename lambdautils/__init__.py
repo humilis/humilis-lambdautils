@@ -1,5 +1,5 @@
 """Utilities for AWS Lambda functions."""
 
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 __author__ = "German Gomez-Herrero, Arnaud Charpentier, FindHotel BV"
