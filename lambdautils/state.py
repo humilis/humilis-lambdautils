@@ -10,8 +10,7 @@ import boto3
 from botocore.exceptions import ClientError
 from retrying import retry
 
-from lambdautils.exception import (CriticalError, StateTableError,
-                                   ContextError, NoParentError)
+from lambdautils.exception import CriticalError, StateTableError, ContextError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -290,7 +289,7 @@ def embed_context(event, namespace, context_id, max_delay=None):
     """Embed context event."""
     try:
         context_obj = get_context(namespace, context_id)
-    except NoParentError:
+    except ContextError:
         if max_delay and arrival_delay_greater_than(context_id, max_delay):
             contex_obj = {}
             LOGGER.error(
