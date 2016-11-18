@@ -160,5 +160,4 @@ def _make_error_events(err, recs):
         "schema_version": "1.0.0",
         "type": "error",
         "channel": "polku",
-        "message": getattr(err, "message", None),
         "payload": rec} for rec in recs]
