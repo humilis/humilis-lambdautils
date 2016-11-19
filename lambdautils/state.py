@@ -293,7 +293,7 @@ def embed_context(event, namespace, context_id, max_delay=None):
     except ContextError:
         if not max_delay \
                 or arrival_delay_greater_than(context_id, max_delay):
-            contex_obj = {}
+            context_obj = {}
             logger.error(
                 "Timeout: message '%s' waited %s seconds for context '%s'",
                 event["message_id"], max_delay, context_id)
