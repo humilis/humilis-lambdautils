@@ -291,6 +291,7 @@ def embed_context(event, namespace, context_id, max_delay=None):
     try:
         context_obj = get_context(namespace, context_id)
     except ContextError:
+        logger.error("Context error handled with max_delay=%s", max_delay)
         if not max_delay \
                 or arrival_delay_greater_than(context_id, max_delay):
             context_obj = {}
