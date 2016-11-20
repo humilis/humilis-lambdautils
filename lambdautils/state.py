@@ -292,6 +292,8 @@ def embed_context(event, namespace, context_id, max_delay=None):
     try:
         context_obj = get_context(namespace, context_id)
     except ContextError:
+        if max_delay is not None:
+            max_delay = float(max_delay)
         logger.error("Context error handled with max_delay=%s", max_delay)
         if not max_delay \
                 or arrival_delay_greater_than(context_id, max_delay):
@@ -325,18 +327,18 @@ def set_context(namespace, context_id, context_obj):
 def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
     """Check if an item arrival is delayed more than a given amount."""
     expected = get_state(item_id, namespace=namespace)
-    if expected and (time.time() - expected) > delay:
+    now = time.time()
+    if expected and (now - expected) > delay:
         logger.error("Timeout: waited %s seconds for parent.", delay)
         return True
     elif expected:
         logger.info("Still out of order but no timeout: %s-%s <= %s.",
-                    time.time(), expected, delay)
+                    now, expected, delay)
         return False
     elif delay > 0:
-        expected = time.time()
         logger.info("Storing expected arrival time (%s) for context '%s'",
-                    datetime.fromtimestamp(expected).isoformat(), item_id)
-        set_state(item_id, expected, namespace=namespace)
+                    datetime.fromtimestamp(now).isoformat(), item_id)
+        set_state(item_id, now, namespace=namespace)
         return False
     else:
         logger.info("Event is out of order but not waiting for parent.")
