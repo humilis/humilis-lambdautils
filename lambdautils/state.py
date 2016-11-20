@@ -329,7 +329,8 @@ def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
         logger.error("Timeout: waited %s seconds for parent.", delay)
         return True
     elif expected:
-        logger.info("Still out of order but no timeout.")
+        logger.info("Still out of order but no timeout: %s-%s <= %s.",
+                    time.time(), expected, delay)
         return False
     elif delay > 0:
         expected = time.time()
