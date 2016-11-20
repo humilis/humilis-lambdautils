@@ -325,7 +325,6 @@ def set_context(namespace, context_id, context_obj):
 def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
     """Check if an item arrival is delayed more than a given amount."""
     expected = get_state(item_id, namespace=namespace)
-    logger.info("Context object '%s' was expected on '%d'", item_id, expected)
     if expected and (time.time() - expected) > delay:
         logger.error("Timeout: waited %s seconds for parent.", delay)
         return True
