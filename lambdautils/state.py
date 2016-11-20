@@ -1,5 +1,6 @@
 """Utilities to manage Lambda and environment state."""
 
+from datetime import datetime
 import json
 import logging
 import os
@@ -333,8 +334,8 @@ def arrival_delay_greater_than(item_id, delay, namespace="_expected_arrival"):
         return False
     elif delay > 0:
         expected = time.time()
-        logger.info("Storing expected arrival time (%f%) for context '%s'",
-                    expected, item_id)
+        logger.info("Storing expected arrival time (%s) for context '%s'",
+                    datetime.fromtimestamp(expected).isoformat(), item_id)
         set_state(item_id, expected, namespace=namespace)
         return False
     else:
