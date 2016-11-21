@@ -293,7 +293,7 @@ def produce_context(namespace, context_id, max_delay=None):
         context_obj = get_context(namespace, context_id)
         logger.info("Found context '%s:%s'".format(namespace, context_id))
     except ContextError:
-        logger.info("Context '%s:%s' not found".format(namespace, context_id))
+        logger.info("Context '%s:%s' not found", namespace, context_id)
         if max_delay is not None:
             max_delay = float(max_delay)
         logger.error("Context error handled with max_delay=%s", max_delay)
