@@ -287,7 +287,7 @@ def delete_state(key, namespace=None, table_name=None, environment=None,
     return resp
 
 
-def embed_context(event, namespace, context_id, max_delay=None):
+def produce_context(event, namespace, context_id, max_delay=None):
     """Embed context event."""
     try:
         context_obj = get_context(namespace, context_id)
@@ -306,8 +306,7 @@ def embed_context(event, namespace, context_id, max_delay=None):
                 context_id, event["message_id"])
             raise OutOfOrderError(msg)
 
-    event["context"] = {namespace: context_obj}
-    return event
+    return context_obj
 
 
 def get_context(namespace, context_id):
