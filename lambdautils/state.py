@@ -287,8 +287,8 @@ def delete_state(key, namespace=None, table_name=None, environment=None,
     return resp
 
 
-def produce_context(event, namespace, context_id, max_delay=None):
-    """Embed context event."""
+def produce_context(namespace, context_id, max_delay=None):
+    """Produce event context."""
     try:
         context_obj = get_context(namespace, context_id)
     except ContextError:
@@ -299,11 +299,10 @@ def produce_context(event, namespace, context_id, max_delay=None):
                 or arrival_delay_greater_than(context_id, max_delay):
             context_obj = {}
             logger.error(
-                "Timeout: message '%s' waited %s seconds for context '%s'",
-                event["message_id"], max_delay, context_id)
+                "Timeout: waited %s seconds for context '%s'",
+                max_delay, context_id)
         else:
-            msg = "Context '{}' for message '{}' not found: resorting".format(
-                context_id, event["message_id"])
+            msg = "Context '{}' not found: resorting".format(context_id)
             raise OutOfOrderError(msg)
 
     return context_obj
