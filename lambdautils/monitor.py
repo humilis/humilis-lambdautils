@@ -119,20 +119,21 @@ def _handle_non_critical_exception(err, errstream, recs, client, silent=False):
                 "First failed event: %s", json.dumps(recs[0], indent=4))
         errevents = _make_error_events(err, recs)
 
-        kinesis_stream = errstream.get("kinesis_stream")
-        randomkey = str(uuid.uuid4())
-        if kinesis_stream:
-            send_to_kinesis_stream(
-                errevents,
-                kinesis_stream,
-                partition_key=errstream.get("partition_key", randomkey))
-            rlogger.info("Sent errors to Kinesis stream '%s'", errstream)
+        if errstream:
+            kinesis_stream = errstream.get("kinesis_stream")
+            randomkey = str(uuid.uuid4())
+            if kinesis_stream:
+                send_to_kinesis_stream(
+                    errevents,
+                    kinesis_stream,
+                    partition_key=errstream.get("partition_key", randomkey))
+                rlogger.info("Sent errors to Kinesis stream '%s'", errstream)
 
-        delivery_stream = errstream.get("firehose_delivery_stream")
-        if delivery_stream:
-            send_to_delivery_stream(errevents, delivery_stream)
-            rlogger.info("Sent error payload to Firehose delivery stream '%s'",
-                         delivery_stream)
+            delivery_stream = errstream.get("firehose_delivery_stream")
+            if delivery_stream:
+                send_to_delivery_stream(errevents, delivery_stream)
+                rlogger.info("Sent error payload to Firehose delivery stream '%s'",
+                             delivery_stream)
 
         if not kinesis_stream and not delivery_stream:
             # Promote to Critical exception
