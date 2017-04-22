@@ -23,9 +23,9 @@ import lambdautils.utils
         ("k", "e", None, None, "e-dummystage-secrets", "k"),
         ("k", "e", None, "n", "e-dummystage-secrets", "n:k"),
         ("k", "e", "s", "n", "e-s-secrets", "n:k")])
-def test_get_secret(key, environment, stage, namespace, table, nkey,
-                    boto3_resource, boto3_client, monkeypatch):
-    """Gets a secret from DynamoDB."""
+def test_get_secret_from_vault(key, environment, stage, namespace, table, nkey,
+                               boto3_resource, boto3_client, monkeypatch):
+    """Gets a secret from the DynamoDB secrets vault."""
     # Call to the DynamoDB client to retrieve the encrypted secret
     monkeypatch.setattr("boto3.resource", boto3_resource)
     monkeypatch.setattr("boto3.client", boto3_client)
@@ -40,6 +40,15 @@ def test_get_secret(key, environment, stage, namespace, table, nkey,
 
     # Call to the KMS client to decrypt the secret
     boto3_client('kms').decrypt.assert_called_with(CiphertextBlob="encrypted")
+
+
+def test_get_secret_from_env(monkeypatch):
+    """Get a secret from an (encrypted) environment variable."""
+    key = str(uuid.uuid4()).replace('-', '.')
+    value = str(uuid.uuid4())
+    monkeypatch.setenv(key.replace('.', '_').upper(), value)
+    secret = lambdautils.utils.get_secret(key)
+    assert secret == value
 
 
 def test_get_setting(monkeypatch):

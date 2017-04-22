@@ -69,9 +69,10 @@ def _is_critical_exception(err):
     return isinstance(err, CriticalError)
 
 
-def get_secret(key, environment=None, stage=None, namespace=None,
-               wait_exponential_multiplier=50, wait_exponential_max=5000,
-               stop_max_delay=10000):
+def _get_secret_from_vault(
+        key, environment=None, stage=None, namespace=None,
+        wait_exponential_multiplier=50, wait_exponential_max=5000,
+        stop_max_delay=10000):
     """Retrieves a secret from the secrets vault."""
     # Get the encrypted secret from DynamoDB
     table_name = _secrets_table_name(environment=environment, stage=stage)
@@ -125,6 +126,15 @@ def get_secret(key, environment=None, stage=None, namespace=None,
         pass
 
     return value
+
+
+def get_secret(key, *args, **kwargs):
+    """Retrieves a secret."""
+    env_value = os.environ.get(key.replace('.', '_').upper())
+    if not env_value:
+        # Backwards compatibility: the deprecated secrets vault
+        return _get_secret_from_vault(key, *args, **kwargs)
+    return env_value
 
 
 def get_setting(*args, **kwargs):
