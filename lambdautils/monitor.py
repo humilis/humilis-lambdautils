@@ -134,10 +134,8 @@ def _handle_non_critical_exception(err, errstream, recs, client, silent=False):
                 send_to_delivery_stream(errevents, delivery_stream)
                 rlogger.info("Sent error payload to Firehose delivery stream '%s'",
                              delivery_stream)
-        else:
-            kinesis_stream = None
 
-        if not kinesis_stream and not delivery_stream:
+        if not errstream or (not kinesis_stream and not delivery_stream):
             # Promote to Critical exception
             raise err
     except:
