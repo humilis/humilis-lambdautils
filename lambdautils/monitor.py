@@ -75,7 +75,8 @@ def sentry_monitor(error_stream=None, **kwargs):
 def _setup_sentry_client(context):
     """Produce and configure the sentry client."""
 
-    dsn = get_secret("sentry.dsn")
+    # get_secret will be deprecated soon
+    dsn = os.environ.get("SENTRY_DSN") or get_secret("sentry.dsn")
     try:
         client = raven.Client(dsn)
         handler = SentryHandler(client)
