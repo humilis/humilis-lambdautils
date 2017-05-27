@@ -162,12 +162,12 @@ def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
 
 @pytest.mark.parametrize(
     "kstream, fstream, rcalls, kcalls, fcalls, ev", [
-        ("a", "b", 0, 1, 1, {"Records": [{}]}),
-        (None, "b", 0, 0, 1, {"Records": [{}]}),
+        ("a", "b", 1, 0, 0, {"Records": [{}]}),
+        (None, "b", 1, 0, 0, {"Records": [{}]}),
         (None, None, 1, 0, 0, None),
         (None, None, 1, 0, 0, None),
-        ("a", "b", 0, 1, 1, None),
-        ("a", None, 0, 1, 0, None)])
+        ("a", "b", 1, 0, 0, None),
+        ("a", None, 1, 0, 0, None)])
 def test_sentry_monitor_exception(
         kstream, fstream, rcalls, kcalls, fcalls, ev,
         boto3_client, raven_client, context, kinesis_event, monkeypatch):
@@ -193,10 +193,7 @@ def test_sentry_monitor_exception(
         """Raise an error."""
         raise KeyError
 
-    if not kstream and not fstream:
-        with pytest.raises(KeyError):
-            lambda_handler(ev, context)
-    else:
+    with pytest.raises(KeyError):
         lambda_handler(ev, context)
 
     # Should have captured only 1 error:

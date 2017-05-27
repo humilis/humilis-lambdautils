@@ -50,19 +50,14 @@ def sentry_monitor(error_stream=None, **kwargs):
             client = _setup_sentry_client(context)
             try:
                 return func(event, context)
-            except CriticalError:
+            except (ProcessingError, OutOfOrderError) as err:
+                # A controlled exception from the Kinesis processor
+                _handle_processing_error(err, error_stream, client)
+            except Exception as err:
                 # Raise the exception and block the stream processor
                 if client:
                     client.captureException()
                 raise
-            except ProcessingError as err:
-                # A controlled exception from the Kinesis processor
-                _handle_processing_error(err, error_stream, client)
-            except Exception as err:
-                # An uncontrolled (by default non-critical) exception
-                recs = _get_records(event)
-                _handle_non_critical_exception(
-                    err, error_stream, recs, client)
         return wrapper
 
     return decorator
@@ -88,7 +83,11 @@ def _handle_processing_error(err, errstream, client):
     errors = sorted(err.events, key=operator.attrgetter("index"))
     failed = [e.event for e in errors]
     silent = all(isinstance(e.error, OutOfOrderError) for e in errors)
-    _handle_non_critical_exception(err, errstream, failed, client, silent)
+    if errstream:
+        _deliver_errored_events(errstream, failed)
+        must_raise = False
+    else:
+        must_raise = True
     for _, event, error, tb in errors:
         if isinstance(error, OutOfOrderError):
             # Not really an error: do not log this to Sentry
@@ -100,40 +99,30 @@ def _handle_processing_error(err, errstream, client):
                 client.captureException()
             msg = "{}: {}".format(err.message, json.dumps(event, indent=4))
             rlogger.error(msg, exc_info=tb)
+            if must_raise:
+                raise
 
 
-def _handle_non_critical_exception(err, errstream, recs, client, silent=False):
+def _deliver_errored_events(errstream, recs):
     """Deliver errors to error stream."""
-    try:
-        rlogger.info("Going to handle %s failed events", len(recs))
-        if recs:
-            rlogger.info(
-                "First failed event: %s", json.dumps(recs[0], indent=4))
-        errevents = _make_error_events(err, recs)
+    rlogger.info("Going to handle %s failed events", len(recs))
+    rlogger.info(
+        "First failed event: %s", json.dumps(recs[0], indent=4))
 
-        if errstream:
-            kinesis_stream = errstream.get("kinesis_stream")
-            randomkey = str(uuid.uuid4())
-            if kinesis_stream:
-                send_to_kinesis_stream(
-                    errevents,
-                    kinesis_stream,
-                    partition_key=errstream.get("partition_key", randomkey))
-                rlogger.info("Sent errors to Kinesis stream '%s'", errstream)
+    kinesis_stream = errstream.get("kinesis_stream")
+    randomkey = str(uuid.uuid4())
+    if kinesis_stream:
+        send_to_kinesis_stream(
+            recs,
+            kinesis_stream,
+            partition_key=errstream.get("partition_key", randomkey))
+        rlogger.info("Sent errors to Kinesis stream '%s'", errstream)
 
-            delivery_stream = errstream.get("firehose_delivery_stream")
-            if delivery_stream:
-                send_to_delivery_stream(errevents, delivery_stream)
-                rlogger.info("Sent error payload to Firehose delivery stream '%s'",
-                             delivery_stream)
-
-        if not errstream or (not kinesis_stream and not delivery_stream):
-            # Promote to Critical exception
-            raise err
-    except:
-        if client:
-            client.captureException()
-        raise
+    delivery_stream = errstream.get("firehose_delivery_stream")
+    if delivery_stream:
+        send_to_delivery_stream(errevents, delivery_stream)
+        rlogger.info("Sent error payload to Firehose delivery stream '%s'",
+                     delivery_stream)
 
 
 def _get_records(event):
@@ -144,13 +133,3 @@ def _get_records(event):
         # If not a Kinesis event, just unpack the records
         recs = event["Records"]
     return recs
-
-
-def _make_error_events(err, recs):
-    """Make error events."""
-    return [{
-        "message_id": str(uuid.uuid4()),
-        "schema_version": "1.0.0",
-        "type": "error",
-        "channel": "polku",
-        "payload": rec} for rec in recs]
