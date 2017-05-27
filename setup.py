@@ -32,6 +32,7 @@ setup(
     packages=find_packages(include=["lambdautils"]),
     install_requires=[
         "raven",
+        "six",
         "retrying"],
     classifiers=[
         "Programming Language :: Python :: 2.7"],

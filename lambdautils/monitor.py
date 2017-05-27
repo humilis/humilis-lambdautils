@@ -4,6 +4,7 @@ import json
 import logging
 import operator
 import os
+import six
 import uuid
 
 import raven
@@ -14,10 +15,6 @@ from .state import get_secret
 from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
                       send_to_delivery_stream)
 from .exception import CriticalError, ProcessingError, OutOfOrderError
-
-# Sentry logger
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
 
 # The AWS Lambda logger
 rlogger = logging.getLogger()
@@ -55,7 +52,6 @@ def sentry_monitor(error_stream=None, **kwargs):
                 return func(event, context)
             except CriticalError:
                 # Raise the exception and block the stream processor
-                logger.error("Caught a blocking exception", exc_info=True)
                 if client:
                     client.captureException()
                 raise
@@ -79,12 +75,10 @@ def _setup_sentry_client(context):
     dsn = os.environ.get("SENTRY_DSN") or get_secret("sentry.dsn")
     try:
         client = raven.Client(dsn)
-        handler = SentryHandler(client)
-        logger.addHandler(handler)
         client.user_context(_sentry_context_dict(context))
         return client
     except:
-        logger.error("Raven client error", exc_info=True)
+        rlogger.error("Raven client error", exc_info=True)
         return None
 
 
@@ -100,20 +94,17 @@ def _handle_processing_error(err, errstream, client):
             # Not really an error: do not log this to Sentry
             continue
         try:
-            raise error
-        except type(error) as catched_error:
-            msg = "{}: {}".format(catched_error.message,
-                                  json.dumps(event, indent=4))
-            logger.error(msg, exc_info=(type(error), error.args or None, tb))
+            raise six.reraise(*tb)
+        except Exception as err:
+            if client:
+                client.captureException()
+            msg = "{}: {}".format(err.message, json.dumps(event, indent=4))
+            rlogger.error(msg, exc_info=tb)
 
 
 def _handle_non_critical_exception(err, errstream, recs, client, silent=False):
     """Deliver errors to error stream."""
     try:
-        if silent:
-            rlogger.error("AWS Lambda exception", exc_info=True)
-        else:
-            logger.error("AWS Lambda exception", exc_info=True)
         rlogger.info("Going to handle %s failed events", len(recs))
         if recs:
             rlogger.info(
