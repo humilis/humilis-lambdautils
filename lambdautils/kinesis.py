@@ -20,14 +20,17 @@ class BadKinesisEventError(Exception):
     pass
 
 
-def unpack_kinesis_event(kinesis_event, deserializer=None,
+def unpack_kinesis_event(kinesis_event, deserializer=None, preprocess=None,
                          embed_timestamp=False):
     """Extracts events (a list of dicts) from a Kinesis event."""
     records = kinesis_event["Records"]
     events = []
     shard_ids = set()
     for rec in records:
-        payload = base64.decodestring(rec["kinesis"]["data"]).decode()
+        payload = base64.decodestring(rec["kinesis"]["data"])
+        if preprocess:
+            payload = preprocess(payload)
+        payload = payload.decode()
         shard_ids.add(rec["eventID"].split(":")[0])
         if deserializer:
             try:
@@ -85,7 +88,7 @@ def send_to_delivery_stream(events, stream_name):
 
 
 def send_to_kinesis_stream(events, stream_name, partition_key=None,
-                           serializer=json.dumps):
+                           preprocess=None, serializer=json.dumps):
     """Sends events to a Kinesis stream."""
     if not events:
         logger.info("No events provided: nothing delivered to Firehose")
@@ -102,6 +105,9 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None,
 
         if not isinstance(event, str):
             event = serializer(event)
+
+        if preprocess:
+            event = preprocess(event)
 
         record = {"Data": event,
                   "PartitionKey": partition_key_value}
