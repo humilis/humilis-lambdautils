@@ -27,7 +27,7 @@ def unpack_kinesis_event(kinesis_event, deserializer=None, unpacker=None,
     events = []
     shard_ids = set()
     for rec in records:
-        payload = base64.decodestring(rec["kinesis"]["data"])
+        payload = base64.decodestring(rec["kinesis"]["data"].encode('utf-8'))
         if unpacker:
             payload = unpacker(payload)
         payload = payload.decode()
