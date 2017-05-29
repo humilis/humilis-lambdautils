@@ -12,6 +12,12 @@ import boto3
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+try:
+    from base64 import decodebytes as b64decode
+except ImportError:
+    # Python 2.x compatibility
+    from base64 import decodestring as b64decode
+
 
 class BadKinesisEventError(Exception):
 
@@ -27,7 +33,7 @@ def unpack_kinesis_event(kinesis_event, deserializer=None, unpacker=None,
     events = []
     shard_ids = set()
     for rec in records:
-        payload = base64.decodestring(rec["kinesis"]["data"].encode('utf-8'))
+        payload = b64decode(rec["kinesis"]["data"].encode('utf-8'))
         if unpacker:
             payload = unpacker(payload)
         payload = payload.decode()

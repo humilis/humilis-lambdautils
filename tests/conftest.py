@@ -10,6 +10,11 @@ import uuid
 
 import pytest
 
+try:
+    from base64 import encodebytes as b64encode
+except ImportError:
+    from base64 import encodestring as b64encode
+
 
 @pytest.fixture(scope="function", params=[1, 10, 50])
 def search_events(request):
@@ -25,9 +30,9 @@ def search_events(request):
 def kinesis_payloads(search_events):
     """A Kinesis payload containing one or more search events."""
     try:
-        return [base64.encodestring(json.dumps(ev)) for ev in search_events]
+        return [b64encode(json.dumps(ev)) for ev in search_events]
     except TypeError:
-        return [base64.encodestring(json.dumps(ev).encode())
+        return [b64encode(json.dumps(ev).encode()).decode()
                 for ev in search_events]
 
 
