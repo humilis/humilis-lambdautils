@@ -97,7 +97,8 @@ def _handle_processing_error(err, errstream, client):
         except Exception as err:
             if client:
                 client.captureException()
-            msg = "{}: {}".format(err.message, json.dumps(event, indent=4))
+            msg = "{}{}: {}".format(type(err).__name__,
+                    err.args, json.dumps(event, indent=4))
             rlogger.error(msg, exc_info=tb)
             if must_raise:
                 raise
