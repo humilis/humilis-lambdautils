@@ -33,14 +33,19 @@ def unpack_kinesis_event(kinesis_event, deserializer=None, unpacker=None,
     events = []
     shard_ids = set()
     for rec in records:
-        payload = b64decode(rec["kinesis"]["data"].encode('utf-8'))
+        data = rec["kinesis"]["data"]
+        try:
+            payload = b64decode(data)
+        except TypeError:
+            payload = b64decode(data.encode("utf-8"))
         if unpacker:
             payload = unpacker(payload)
-        payload = payload.decode()
         shard_ids.add(rec["eventID"].split(":")[0])
         if deserializer:
             try:
                 payload = deserializer(payload)
+            except TypeError:
+                payload = deserializer(payload.decode())
             except ValueError:
                 logger.error("Error deserializing Kinesis payload: {}".format(
                     payload))
