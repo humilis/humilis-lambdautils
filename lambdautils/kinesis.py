@@ -107,7 +107,7 @@ def send_to_kinesis_stream(events, stream_name, partition_key=None,
 
     records = []
     for event in events:
-        if partition_key is None:
+        if not partition_key:
             partition_key_value = str(uuid.uuid4())
         elif hasattr(partition_key, "__call__"):
             partition_key_value = partition_key(event)
