@@ -233,7 +233,7 @@ def get_state_batch(keys, namespace=None, consistent=True):
         ns_keys = ["{}:{}".format(namespace, key) for key in ukeys]
 
     uvalues = {k: v for k, v
-               in zip(ukeys, get_item_batch(ns_keys, consistent=consistent)}
+               in zip(ukeys, get_item_batch(ns_keys, consistent=consistent))}
     return list(zip(keys, (uvalues[k] for k in keys)))
 
 
