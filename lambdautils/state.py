@@ -227,10 +227,14 @@ def get_item_batch(keys, consistent):
 def get_state_batch(keys, namespace=None, consistent=True):
     """Get a batch of items from the state store."""
 
-    if namespace:
-        ns_keys = ["{}:{}".format(namespace, key) for key in keys]
+    ukeys = set(keys)
 
-    return list(zip(keys, get_item_batch(ns_keys, consistent=consistent)))
+    if namespace:
+        ns_keys = ["{}:{}".format(namespace, key) for key in ukeys]
+
+    uvalues = {k: v for k, v
+               in zip(ukeys, get_item_batch(ns_keys, consistent=consistent)}
+    return list(zip(keys, (uvalues[k] for k in keys)))
 
 
 @retry(wait_exponential_multiplier=500,
