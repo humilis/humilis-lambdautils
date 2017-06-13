@@ -221,7 +221,7 @@ def get_item_batch(keys, consistent):
         key = resp.get("id")
         key = key.get("S") or key.get("B")
         values[key] = value
-    return [(k, values.get(k)) for k in keys]
+    return [values.get(k) for k in keys]
 
 
 def get_state_batch(keys, namespace=None, consistent=True):
@@ -230,7 +230,7 @@ def get_state_batch(keys, namespace=None, consistent=True):
     if namespace:
         keys = ["{}:{}".format(namespace, key) for key in keys]
 
-    return get_item_batch(keys, consistent=consistent)
+    return list(zip(keys, get_item_batch(keys, consistent=consistent)))
 
 
 @retry(wait_exponential_multiplier=500,
