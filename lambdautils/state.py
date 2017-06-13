@@ -246,7 +246,7 @@ def set_item_batch(keys, values, ttl):
                     "Item": {
                         "id": {"S": key},
                         "value": {"S": value},
-                        "ttl": {"N": time.time() + ttl}
+                        "ttl": {"N": str(int(time.time() + ttl))}
                     }
                 }
              } for key, value in zip(keys, values)]})
