@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+TABLE_NAME = "{}-{}-{}-state".format(
+    os.environ.get("HUMILIS_ENVIRONMENT"),
+    os.environ.get("HUMILIS_LAYER"),
+    os.environ.get("HUMILIS_STAGE"))
+
+
 def _secrets_table_name(environment=None, stage=None):
     """Name of the secrets table associated to a humilis deployment."""
     if environment is None:
@@ -146,7 +152,7 @@ def get_state(key, namespace=None, table_name=None, environment=None,
               layer=None, stage=None, shard_id=None, consistent=True,
               deserializer=json.loads, wait_exponential_multiplier=500,
               wait_exponential_max=5000, stop_max_delay=10000):
-    """Get Lambda state value."""
+    """Get Lambda state value(s)."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
                                        stage=stage)
@@ -196,6 +202,63 @@ def get_state(key, namespace=None, table_name=None, environment=None,
             return value
 
     return value
+
+
+@retry(wait_exponential_multiplier=500,
+       wait_exponential_max=1000,
+       stop_max_delay=10000)
+def get_item_batch(keys, consistent):
+    dynamodb = boto3.client("dynamodb")
+    resp = dynamodb.batch_get_item(RequestItems={
+        TABLE_NAME: {
+            "ConsistentRead": consistent,
+            "Keys": [{"id": {"S": key}} for key in keys]}})
+    resps = resp["Responses"][TABLE_NAME]
+    values = {}
+    for resp in resps:
+        value = resp.get("value", {})
+        value = value.get("S") or value.get("B")
+        key = resp.get("id")
+        key = key.get("S") or key.get("B")
+        values[key] = value
+    return [(k, values.get(k)) for k in keys]
+
+
+def get_state_batch(keys, namespace=None, consistent=True):
+    """Get a batch of items from the state store."""
+
+    if namespace:
+        keys = ["{}:{}".format(namespace, key) for key in keys]
+
+    return get_item_batch(keys, consistent=consistent)
+
+
+@retry(wait_exponential_multiplier=500,
+       wait_exponential_max=1000,
+       stop_max_delay=10000)
+def set_item_batch(keys, values, ttl):
+    dynamodb = boto3.client("dynamodb")
+
+    return dynamodb.batch_write_item(RequestItems={
+        TABLE_NAME:
+            [{
+                "PutRequest": {
+                    "Item": {
+                        "id": {"S": key},
+                        "value": {"S": value},
+                        "ttl": {"N": time.time() + ttl}
+                    }
+                }
+             } for key, value in zip(keys, values)]})
+
+
+def set_state_batch(keys, values, namespace=None, ttl=3600*24*365):
+    """Set a batch of items in the state store."""
+
+    if namespace:
+        keys = ["{}:{}".format(namespace, key) for key in keys]
+
+    return set_item_batch(keys, values, ttl)
 
 
 def set_state(key, value, namespace=None, table_name=None, environment=None,
