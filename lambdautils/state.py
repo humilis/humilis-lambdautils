@@ -201,7 +201,7 @@ def get_state(key, namespace=None, table_name=None, environment=None,
 def set_state(key, value, namespace=None, table_name=None, environment=None,
               layer=None, stage=None, shard_id=None, consistent=True,
               serializer=json.dumps, wait_exponential_multiplier=500,
-              wait_exponential_max=5000, stop_max_delay=10000):
+              wait_exponential_max=5000, stop_max_delay=10000, ttl=None):
     """Set Lambda state value."""
     if table_name is None:
         table_name = _state_table_name(environment=environment, layer=layer,
@@ -233,13 +233,17 @@ def set_state(key, value, namespace=None, table_name=None, environment=None,
     if shard_id:
         key = "{}:{}".format(shard_id, key)
 
+    item = {"id": key, "value": value}
+    if ttl:
+        item["ttl"] = time.time() + ttl
+
     @retry(retry_on_exception=_is_critical_exception,
            wait_exponential_multiplier=500,
            wait_exponential_max=5000,
            stop_max_delay=10000)
     def put_item():
         try:
-            return table.put_item(Item={"id": key, "value": value})
+            return table.put_item(Item=item)
         except Exception as err:
             if _is_dynamodb_critical_exception(err):
                 raise CriticalError(err)
