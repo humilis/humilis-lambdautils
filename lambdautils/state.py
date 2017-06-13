@@ -255,6 +255,8 @@ def set_item_batch(keys, values, ttl):
 def set_state_batch(keys, values, namespace=None, ttl=3600*24*365):
     """Set a batch of items in the state store."""
 
+    keys, values = zip(*{k: v for k, v in zip(keys, values)}.items())
+
     if namespace:
         keys = ["{}:{}".format(namespace, key) for key in keys]
 
