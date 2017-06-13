@@ -228,9 +228,9 @@ def get_state_batch(keys, namespace=None, consistent=True):
     """Get a batch of items from the state store."""
 
     if namespace:
-        keys = ["{}:{}".format(namespace, key) for key in keys]
+        ns_keys = ["{}:{}".format(namespace, key) for key in keys]
 
-    return list(zip(keys, get_item_batch(keys, consistent=consistent)))
+    return list(zip(keys, get_item_batch(ns_keys, consistent=consistent)))
 
 
 @retry(wait_exponential_multiplier=500,
