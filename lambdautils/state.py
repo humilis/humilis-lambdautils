@@ -304,8 +304,7 @@ def set_state(key, value, namespace=None, table_name=None, environment=None,
 
     item = {"id": key, "value": value}
     if ttl:
-        item["ttl"] = time.time() + ttl
-
+        item["ttl"] = {"N": str(int(time.time() + ttl))}
     @retry(retry_on_exception=_is_critical_exception,
            wait_exponential_multiplier=500,
            wait_exponential_max=5000,
