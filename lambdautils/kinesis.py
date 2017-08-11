@@ -41,15 +41,22 @@ def unpack_kinesis_event(kinesis_event, deserializer=None, unpacker=None,
         if unpacker:
             payload = unpacker(payload)
         shard_ids.add(rec["eventID"].split(":")[0])
+
+        try:
+            payload = payload.decode()
+        except AttributeError:
+            pass
+
         if deserializer:
             try:
                 payload = deserializer(payload)
-            except TypeError:
-                payload = deserializer(payload.decode())
             except ValueError:
-                logger.error("Error deserializing Kinesis payload: {}".format(
-                    payload))
-                raise
+                try:
+                    payload = deserializer(payload.replace("\\'", "'"))
+                except:
+                    logger.error("Invalid searialized payload: {}".format(
+                        payload))
+                    raise
 
         if isinstance(payload, dict) and embed_timestamp:
             ts = rec["kinesis"].get("approximateArrivalTimestamp")
