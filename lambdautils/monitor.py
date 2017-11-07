@@ -21,6 +21,9 @@ rlogger = logging.getLogger()
 rlogger.setLevel(logging.INFO)
 
 
+SENTRY_SAMPLE_RATE = int(os.environ.get("SENTRY_SAMPLE_RATE") or 1)
+
+
 def _sentry_context_dict(context):
     """Create a dict with context information for Sentry."""
     d = {
@@ -69,7 +72,7 @@ def _setup_sentry_client(context):
     # get_secret will be deprecated soon
     dsn = os.environ.get("SENTRY_DSN") or get_secret("sentry.dsn")
     try:
-        client = raven.Client(dsn)
+        client = raven.Client(dsn, sample_rate=SENTRY_SAMPLE_RATE)
         client.user_context(_sentry_context_dict(context))
         return client
     except:
