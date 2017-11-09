@@ -20,8 +20,10 @@ from .exception import CriticalError, ProcessingError, OutOfOrderError
 rlogger = logging.getLogger()
 rlogger.setLevel(logging.INFO)
 
-
-SENTRY_SAMPLE_RATE = int(os.environ.get("SENTRY_SAMPLE_RATE") or 1)
+try:
+    SENTRY_SAMPLE_RATE = float(os.environ.get("SENTRY_SAMPLE_RATE"))
+except ValueError:
+    SENTRY_SAMPLE_RATE = 1.0
 
 
 def _sentry_context_dict(context):
