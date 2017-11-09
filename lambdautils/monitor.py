@@ -21,7 +21,7 @@ rlogger = logging.getLogger()
 rlogger.setLevel(logging.INFO)
 
 try:
-    SENTRY_SAMPLE_RATE = float(os.environ.get("SENTRY_SAMPLE_RATE"))
+    SENTRY_SAMPLE_RATE = float(os.environ.get("SENTRY_SAMPLE_RATE", ""))
 except ValueError:
     SENTRY_SAMPLE_RATE = 1.0
 
