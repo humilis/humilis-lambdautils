@@ -155,9 +155,6 @@ def test_sentry_monitor_bad_client(boto3_client, raven_client, context,
 
     lambda_handler(None, context)
     raven_client.captureException.assert_not_called()
-    boto3_client("dynamodb").get_item.assert_called_with(
-        TableName="dummyenv-dummystage-secrets",
-        Key={"id": {"S": "sentry.dsn"}})
 
 
 @pytest.mark.parametrize(
@@ -203,27 +200,6 @@ def test_sentry_monitor_exception(
     # And should have send the events to the Kinesis and FH error streams
     assert boto3_client("kinesis").put_records.call_count == kcalls
     assert boto3_client("firehose").put_record_batch.call_count == fcalls
-
-
-def test_sentry_monitor_critical_exception(context, kinesis_event,
-                                           boto3_client, raven_client,
-                                           monkeypatch):
-    """Tests that sentry_monitor reraises critical exceptions."""
-
-    monkeypatch.setattr("boto3.client", boto3_client)
-    monkeypatch.setattr("raven.Client", Mock(return_value=raven_client))
-    monkeypatch.setattr("logging.getLogger", Mock())
-    monkeypatch.setattr("logging.NullHandler", Mock())
-    monkeypatch.setattr("lambdautils.monitor.SentryHandler", Mock())
-
-    @lambdautils.utils.sentry_monitor(environment="dummyenv",
-                                      layer="dummylayer",
-                                      stage="dummystage")
-    def lambda_handler(event, context):
-        raise lambdautils.utils.CriticalError(KeyError)
-
-    with pytest.raises(lambdautils.utils.CriticalError):
-        lambda_handler(kinesis_event, context)
 
 
 def test_send_to_kinesis_stream(search_events, boto3_client, monkeypatch):

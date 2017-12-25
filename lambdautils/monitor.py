@@ -10,8 +10,6 @@ import uuid
 import raven
 from raven.handlers.logging import SentryHandler
 
-from .state import get_secret
-
 from .kinesis import (unpack_kinesis_event, send_to_kinesis_stream,
                       send_to_delivery_stream)
 from .exception import CriticalError, ProcessingError, OutOfOrderError
@@ -72,7 +70,7 @@ def _setup_sentry_client(context):
     """Produce and configure the sentry client."""
 
     # get_secret will be deprecated soon
-    dsn = os.environ.get("SENTRY_DSN") or get_secret("sentry.dsn")
+    dsn = os.environ.get("SENTRY_DSN")
     try:
         client = raven.Client(dsn, sample_rate=SENTRY_SAMPLE_RATE)
         client.user_context(_sentry_context_dict(context))
